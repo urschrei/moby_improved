@@ -13,12 +13,14 @@ struct SettingsView: View {
         Section("Places") {
           ForEach(PlaceKind.allCases) { kind in
             NavigationLink {
-              PlaceEditor(kind: kind, place: $settings.values.places[kind], location: location)
+              PlaceEditor(
+                kind: kind, place: $settings.values.places[kind],
+                name: nameBinding(for: kind), location: location)
             } label: {
               LabeledContent {
                 Text(settings.values.places[kind]?.name ?? "Not set")
               } label: {
-                Label(kind.title, systemImage: kind.systemImage)
+                Label(settings.title(for: kind), systemImage: kind.systemImage)
               }
             }
           }
@@ -68,6 +70,15 @@ struct SettingsView: View {
         }
       }
     }
+    .tint(Theme.accent)
+  }
+
+  /// A binding to the rider's name for a place. An empty name removes it.
+  private func nameBinding(for kind: PlaceKind) -> Binding<String> {
+    Binding(
+      get: { settings.values.placeNames[kind] ?? "" },
+      set: { settings.values.placeNames[kind] = $0.isEmpty ? nil : $0 }
+    )
   }
 }
 
@@ -137,6 +148,7 @@ struct CommuteWindowEditor: View {
 struct PlaceEditor: View {
   let kind: PlaceKind
   @Binding var place: Place?
+  @Binding var name: String
   let location: Coordinate?
   @State private var query = ""
   @State private var results: [MKMapItem] = []
@@ -149,6 +161,11 @@ struct PlaceEditor: View {
 
   var body: some View {
     List {
+      Section("Name") {
+        TextField(kind.title, text: $name)
+          .textInputAutocapitalization(.words)
+          .submitLabel(.done)
+      }
       if let place {
         Section("Saved") {
           Text(place.name)
@@ -183,7 +200,7 @@ struct PlaceEditor: View {
         }
       }
     }
-    .navigationTitle(kind.title)
+    .navigationTitle(name.isEmpty ? kind.title : name)
     .searchable(
       text: $query, placement: .navigationBarDrawer(displayMode: .always),
       prompt: "Address or place"

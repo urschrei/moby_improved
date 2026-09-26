@@ -37,10 +37,12 @@ enum Origin: Hashable, Identifiable {
 
   var id: Self { self }
 
-  var title: String {
+  /// Returns the name of the origin, with the rider's names for places.
+  @MainActor
+  func title(settings: Settings) -> String {
     switch self {
     case .here: "Here"
-    case .place(let kind): kind.title
+    case .place(let kind): settings.title(for: kind)
     }
   }
 

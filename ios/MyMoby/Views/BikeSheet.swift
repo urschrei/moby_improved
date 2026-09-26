@@ -88,7 +88,7 @@ struct BikeSheet: View {
         controller: controller, showNearest: { selectedID = nil })
     } else {
       EmptySection(
-        location: location, origin: origin, originCoordinate: originCoordinate,
+        location: location, settings: settings, origin: origin, originCoordinate: originCoordinate,
         error: store.lastError, isShowingSettings: $isShowingSettings)
     }
   }
@@ -332,6 +332,7 @@ struct TargetSection: View {
 /// The state of the sheet when there is no bike to show.
 struct EmptySection: View {
   let location: LocationProvider
+  let settings: Settings
   let origin: Origin
   let originCoordinate: Coordinate?
   let error: String?
@@ -345,9 +346,9 @@ struct EmptySection: View {
         Text("Turn on location access for MyMoby in Settings to find bikes near you.")
           .foregroundStyle(.secondary)
       } else if case .place(let kind) = origin, originCoordinate == nil {
-        Text("\(kind.title) is not set")
+        Text("\(settings.title(for: kind)) is not set")
           .font(.title2.bold())
-        Button("Set \(kind.title)") { isShowingSettings = true }
+        Button("Set \(settings.title(for: kind))") { isShowingSettings = true }
           .buttonStyle(.borderedProminent)
           .foregroundStyle(Theme.onAccent)
       } else if let error {

@@ -21,6 +21,32 @@ final class Settings {
     ]
     var commuteIntervalS: Int = 30
     var idleIntervalS: Int = 60
+    /// The names that the rider gave to places. A place without a name uses
+    /// the title of its kind.
+    var placeNames: [PlaceKind: String] = [:]
+
+    init() {}
+
+    /// Decodes the values. A value that is not in the data, for example
+    /// because an earlier version of the app saved it, keeps its default.
+    init(from decoder: any Decoder) throws {
+      let container = try decoder.container(keyedBy: CodingKeys.self)
+      let defaults = Values()
+      places =
+        try container.decodeIfPresent([PlaceKind: Place].self, forKey: .places) ?? defaults.places
+      minRangeKm =
+        try container.decodeIfPresent(Double.self, forKey: .minRangeKm) ?? defaults.minRangeKm
+      windows =
+        try container.decodeIfPresent([CommuteWindow].self, forKey: .windows) ?? defaults.windows
+      commuteIntervalS =
+        try container.decodeIfPresent(Int.self, forKey: .commuteIntervalS)
+        ?? defaults.commuteIntervalS
+      idleIntervalS =
+        try container.decodeIfPresent(Int.self, forKey: .idleIntervalS) ?? defaults.idleIntervalS
+      placeNames =
+        try container.decodeIfPresent([PlaceKind: String].self, forKey: .placeNames)
+        ?? defaults.placeNames
+    }
   }
 
   var values: Values {
@@ -35,6 +61,13 @@ final class Settings {
     values =
       defaults.data(forKey: Self.key)
       .flatMap { try? JSONDecoder().decode(Values.self, from: $0) } ?? Values()
+  }
+
+  /// Returns the name of a place: the rider's name for it, or else the title
+  /// of its kind.
+  func title(for kind: PlaceKind) -> String {
+    let name = values.placeNames[kind]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    return name.isEmpty ? kind.title : name
   }
 
   /// The windows that start before they end. The Rust schedule rejects

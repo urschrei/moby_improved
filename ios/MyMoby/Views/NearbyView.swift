@@ -163,7 +163,7 @@ struct OriginMenu: View {
     Menu {
       Picker("Search from", selection: $origin) {
         ForEach(Origin.allCases) { origin in
-          Label(origin.title, systemImage: origin.systemImage).tag(origin)
+          Label(origin.title(settings: settings), systemImage: origin.systemImage).tag(origin)
         }
       }
       if let nearest = Origin.nearestPlace(to: location, settings: settings) {
@@ -175,7 +175,7 @@ struct OriginMenu: View {
       HStack(spacing: 6) {
         Image(systemName: origin.systemImage)
           .foregroundStyle(Theme.accent)
-        Text(origin.title)
+        Text(origin.title(settings: settings))
           .foregroundStyle(.primary)
         Image(systemName: "chevron.down")
           .font(.caption2.weight(.bold))
@@ -186,7 +186,7 @@ struct OriginMenu: View {
       .background(.regularMaterial, in: Capsule())
     }
     .buttonStyle(.plain)
-    .accessibilityLabel("Search from \(origin.title)")
+    .accessibilityLabel("Search from \(origin.title(settings: settings))")
   }
 }
 
