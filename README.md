@@ -116,6 +116,97 @@ xcrun simctl launch booted ie.urschrei.mymoby -fail-first 3
 | `ios/MyMoby/` | SwiftUI app |
 | `ios/MyMobyWidgets/` | Live Activity |
 
+## The MOBY feed
+
+This section lists the feeds and fields in the MOBY GBFS 3.0 feed, as captured on 26 September 2026 in `core/tests/fixtures/`. The **Used** column shows the fields that the app reads.
+
+The manifest is at `https://moby-move.rideatom.com/gbfs/v3_0/en/gbfs?id=2023`. It lists nine feeds, each with a `name` and a `url`.
+
+### Fields in every feed
+
+| Field | Type | Used | Notes |
+|---|---|---|---|
+| `last_updated` | string | yes | RFC 3339 time, for example `2026-09-26T11:27:56.918Z`. The app shows the age of `vehicle_status` from it. |
+| `ttl` | integer | no | `0` in every feed. |
+| `version` | string | no | `3.0`. |
+| `data` | object | yes | The content of the feed, as listed below. |
+
+### `vehicle_status`
+
+`data.vehicles` holds one object for each vehicle: 599 in the capture.
+
+| Field | Type | Used | Notes |
+|---|---|---|---|
+| `vehicle_id` | string | yes | A 19-digit number, for example `3833465119576306229`. |
+| `lat`, `lon` | number | yes | The position of the vehicle. |
+| `is_reserved` | boolean | yes | `false` for every vehicle in every capture. A reserved or rented vehicle leaves the feed instead. |
+| `is_disabled` | boolean | yes | `false` for every vehicle in every capture. |
+| `vehicle_type_id` | string | no | `3645` for 598 vehicles and `3646` for one. |
+| `current_range_meters` | integer | yes | Missing for the one vehicle of type `3646`. |
+| `pricing_plan_id` | string | no | The same value as `vehicle_type_id`. |
+| `rental_uris.ios` | string | yes | A Branch link, for example `https://moby-move.app.link/2025070027`. The app opens it with **Open in MOBY**, and shows its last part as the bike number. |
+| `rental_uris.android` | string | no | The same link as `rental_uris.ios`. |
+| `rental_uris.web` | string | no | `https://moby-move.app.link/` for every vehicle. |
+
+### `vehicle_types`
+
+`data.vehicle_types` holds three types.
+
+| Field | Type | Used | Notes |
+|---|---|---|---|
+| `vehicle_type_id` | string | no | `3645`, `4178` and `3646`. |
+| `form_factor` | string | no | `bicycle` for all three. |
+| `propulsion_type` | string | no | `electric_assist` for `3645` and `4178`; `human` for `3646`. |
+| `max_range_meters` | integer | no | 50,000 for `3645`. The range gauge uses the same value, set in the app. |
+| `default_pricing_plan_id` | string | no | The same value as `vehicle_type_id`. |
+
+### `geofencing_zones`
+
+`data.geofencing_zones` is a GeoJSON feature collection of 1,233 zones, each a `MultiPolygon`. The exterior rings are clockwise.
+
+| Field | Type | Used | Notes |
+|---|---|---|---|
+| `features[].geometry.coordinates` | array | yes | The polygons of the zone. |
+| `features[].properties.rules[].vehicle_type_ids` | array of strings | yes | The types to which the rule applies. |
+| `features[].properties.rules[].ride_end_allowed` | boolean | yes | The app shows a zone as a parking bay if its first rule for type `3645` allows the ride to end. 1,184 zones qualify. |
+| `features[].properties.rules[].ride_start_allowed` | boolean | no | |
+| `features[].properties.rules[].ride_through_allowed` | boolean | no | |
+| `global_rules[]` | array | no | One rule: rides cannot start or end outside a zone, but can pass through. |
+
+### `system_pricing_plans`
+
+`data.plans` holds one plan for each vehicle type.
+
+| Field | Type | Used | Notes |
+|---|---|---|---|
+| `plan_id` | string | no | The same values as `vehicle_type_id`. |
+| `name[].text`, `description[].text` | string | no | For example `RM E-bike`, and a text with the maximum distance and price for each ride. |
+| `currency` | string | no | `EUR`. |
+| `price` | number | no | The price to start a ride: 1.00. |
+| `is_taxable` | boolean | no | `false`. |
+| `per_min_pricing[].start`, `.rate`, `.interval` | number | no | 0.29 each minute for the e-bikes, 0.04 for type `3646`. |
+
+### `system_information`
+
+| Field | Type | Used | Notes |
+|---|---|---|---|
+| `system_id` | string | no | `2023`. |
+| `name[].text` | string | no | `Dublin`. |
+| `languages` | array of strings | no | `en`. |
+| `timezone` | string | no | `Europe/Dublin`. The commute schedule uses the time zone of the phone. |
+| `opening_hours` | string | no | `24/7`. |
+| `feed_contact_email` | string | no | Empty. The GBFS schema requires an email address, so this feed does not validate. |
+| `rental_apps.ios.store_uri`, `.discovery_uri` | string | no | The App Store page, and `https://moby-move.app.link/`. |
+| `rental_apps.android.store_uri`, `.discovery_uri` | string | no | The Google Play page, and the same Branch link. |
+
+### Other feeds
+
+| Feed | Contents |
+|---|---|
+| `gbfs` | The manifest: `data.feeds[]`, each with `name` and `url`. The app finds `vehicle_status` and `geofencing_zones` in it. |
+| `gbfs_versions` | `data.versions[]`: versions 2.2 and 3.0, each with `version` and `url`. |
+| `station_information`, `station_status` | `data.stations` is empty. MOBY is dockless. |
+
 ## Data
 
 Bike data: [Moby Bikes API](https://data.smartdublin.ie/dataset/moby-bikes), Dublin City Council / Smart Dublin, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
