@@ -44,4 +44,4 @@ app: ffi project
 
 # Format the Swift sources.
 swift-fmt:
-    xcrun swift-format format -i -r ios/MyMoby ios/MobyKit/Tests ios/MobyKit/Package.swift
+    xcrun swift-format format -i -r ios/MyMoby ios/MobyKit/Tests ios/MobyKit/Package.swift ios/MobyKit/Sources/MobyKit/Extensions.swift

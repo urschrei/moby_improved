@@ -46,6 +46,11 @@ struct SettingsView: View {
         } footer: {
           Text("The app refreshes more often at these times.")
         }
+        Section {
+          Attribution()
+        } header: {
+          Text("About")
+        }
         Section("Refresh") {
           Stepper(value: $settings.values.commuteIntervalS, in: 15...120, step: 15) {
             LabeledContent("At commute times", value: "\(settings.values.commuteIntervalS) s")

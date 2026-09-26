@@ -29,6 +29,7 @@ struct NearbyView: View {
           selectedID: $selectedID
         )
         .frame(maxHeight: .infinity)
+        FeedStatus(feed: store.feed, bikeCount: store.bikes.count, isRefreshing: store.isRefreshing)
         BikeList(
           store: store, location: location, origin: originCoordinate, selectedID: $selectedID
         )
@@ -183,6 +184,8 @@ struct BikeList: View {
         }
         .tint(.primary)
       }
+      Attribution()
+        .listRowSeparator(.hidden)
     }
     .listStyle(.plain)
     .refreshable {
