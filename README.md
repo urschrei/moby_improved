@@ -10,6 +10,7 @@ The logic is in a Rust crate (`core`), exposed to a SwiftUI app through UniFFI (
 - A map with the nearest bikes, the walking route to a selected bike, and parking bays (the geofencing zones where a ride can end).
 - Faster refreshes in commute windows, and a warning when the feed is more than 10 minutes old.
 - Background watching with a Live Activity: after **Walk**, the app checks the chosen bike on each refresh. If another rider rents it, the app picks the next nearest bike and sends a notification that opens Maps at it.
+- Reports of bikes that the feed lists but that cannot be rented: ghost bikes, and bikes that need service. See [Reporting bikes](#reporting-bikes).
 - A **Walk** button on the Live Activity, which chooses the bike it shows and opens Maps. It opens MyMoby first, because a Live Activity link always opens its own app.
 
 ## Requirements
@@ -63,6 +64,17 @@ The app watches in the background only if it starts in the foreground. A Shortcu
 3. Add the **Open App** action and choose MyMoby.
 
 In a commute window, the app starts watching when it opens. It stops at the end of the window unless you are walking to a bike.
+
+### Reporting bikes
+
+The app keeps a log of bikes that the feed lists but that you cannot rent, as evidence of the reliability of the feed.
+
+1. Touch and hold a bike on the map or in the list, or tap **Report** on the bike at the top of the sheet.
+2. Choose **Ghost Bike** if the bike is not there, or **Needs Service** and a reason if it is there but you cannot rent it. **Needs Servicing, Not Available** is the message that the MOBY app shows.
+
+Each report records the time, the bike number and vehicle ID, the position and range of the bike in the feed, your position and its accuracy, your distance from the bike, and the time of the feed. For 24 hours after a report, the app records whether the feed still lists the bike: when this changes, and every 30 minutes while it does not.
+
+The log is `reports.jsonl`, in the Files app under **On My iPhone › MyMoby**. iCloud Backup includes it. To share the reports, open **Settings** and tap **Export Reports as CSV**. A free Apple ID cannot sign an app that syncs with iCloud, so the log is only on the phone and in its backups.
 
 ### If Open in MOBY goes to the App Store
 
