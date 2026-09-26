@@ -93,9 +93,22 @@ The rental links are Branch universal links on `moby-move.app.link`. If iOS has 
 | `just app` | Build the app for the iOS 18 simulator. |
 | `just project` | Regenerate `ios/MyMoby.xcodeproj` from `ios/project.yml`. |
 | `just swift-fmt` | Format the Swift sources. |
+| `just swift-lint` | Check the format of the Swift sources. |
 | `just icon` | Draw the app icon from `ios/Icon/MakeIcon.swift` into the asset catalog. |
 
 Run `just ffi` after a change to `core` or `ffi`, and `just project` after adding or removing a Swift file.
+
+### Continuous integration
+
+GitHub Actions runs `.github/workflows/ci.yml` on each push to `main` and on each pull request:
+
+| Job | Runner | Steps |
+|---|---|---|
+| Rust | Ubuntu | `cargo fmt --check`, `cargo clippy` with warnings as errors, `cargo nextest run` |
+| Rust 1.88 | Ubuntu | `cargo check`, for the minimum supported Rust version |
+| iOS | macOS 26 | `just swift-lint`, `just swift-test`, and `just app` without code signing |
+
+The jobs cache the Cargo build, and the iOS job also caches the Swift builds. Dependabot opens one pull request each week for Cargo updates and one for GitHub Actions updates.
 
 ### Testing a rented bike
 

@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Cancel a run when a newer commit arrives on the same branch or pull request.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # Incremental compilation does not help a fresh runner, and makes the cache
+  # larger.
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  rust:
+    name: Rust
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+      - name: Check the format
+        run: cargo fmt --all --check
+      - name: Lint
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test
+        run: cargo nextest run --workspace
+
+  msrv:
+    name: Rust 1.88
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@1.88
+      - uses: Swatinem/rust-cache@v2
+      - name: Check
+        run: cargo check --workspace --all-targets
+
+  ios:
+    name: iOS
+    # The app needs Xcode 26 and the iOS 18 SDK.
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios, aarch64-apple-ios-sim, aarch64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Restore the Swift build caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ios/build
+            ios/MobyKit/.build
+          key: swift-${{ runner.os }}-${{ hashFiles('ios/**/*.swift', 'ios/project.yml', 'Cargo.lock') }}
+          restore-keys: swift-${{ runner.os }}-
+      - name: Check the Swift format
+        run: just swift-lint
+      - name: Test the Swift package
+        run: just swift-test
+      - name: Build the app
+        # A build for the simulator does not need a signing identity.
+        run: just app CODE_SIGNING_ALLOWED=NO

@@ -1,0 +1,19 @@
+# Weekly updates, one pull request for each ecosystem. The Swift package has
+# no remote dependencies: it uses the XCFramework that the Rust build makes.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      cargo:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
