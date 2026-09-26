@@ -5,8 +5,7 @@ headers := "target/uniffi/headers"
 ios_target := "18.0"
 macos_target := "15.0"
 
-# Build the Rust library for iOS device, iOS simulator and macOS, then
-# regenerate the Swift bindings and the XCFramework.
+# Build the Rust library for iOS, the simulator and macOS, and regenerate the Swift bindings.
 ffi:
     IPHONEOS_DEPLOYMENT_TARGET={{ios_target}} cargo build -p moby-ffi --release --target aarch64-apple-ios
     IPHONEOS_DEPLOYMENT_TARGET={{ios_target}} cargo build -p moby-ffi --release --target aarch64-apple-ios-sim
@@ -45,3 +44,11 @@ app: ffi project
 # Format the Swift sources.
 swift-fmt:
     xcrun swift-format format -i -r ios/MyMoby ios/MobyKit/Tests ios/MobyKit/Package.swift ios/MobyKit/Sources/MobyKit/Extensions.swift ios/Shared ios/MyMobyWidgets
+
+# Build a Release copy and install it on the iPhone named in MOBY_DEVICE.
+device: ffi project
+    xcodebuild -project ios/MyMoby.xcodeproj -scheme MyMoby -configuration Release \
+        -destination 'generic/platform=iOS' -derivedDataPath ios/build \
+        -allowProvisioningUpdates build
+    xcrun devicectl device install app --device "$MOBY_DEVICE" \
+        ios/build/Build/Products/Release-iphoneos/MyMoby.app
