@@ -2,7 +2,7 @@ import MapKit
 import MobyKit
 import SwiftUI
 
-/// The map of nearby bikes above the list of the nearest bikes on foot.
+/// The map of nearby bikes, below the sheet with the nearest bike.
 struct NearbyView: View {
   let controller: CommuteController
   let location: LocationProvider
@@ -14,6 +14,7 @@ struct NearbyView: View {
   @State private var camera: MapCameraPosition = .userLocation(fallback: .automatic)
   @State private var selectedID: String?
   @State private var route: MKRoute?
+  @State private var detent: PresentationDetent = BikeSheet.collapsed
 
   /// The number of bikes to show on the map.
   private let mapLimit = 60
@@ -21,66 +22,38 @@ struct NearbyView: View {
   private var store: BikeStore { controller.store }
 
   var body: some View {
-    NavigationStack {
-      VStack(spacing: 0) {
-        OriginPicker(origin: $origin, settings: settings, location: location.coordinate)
-        BikeMap(
-          bikes: Array(store.bikes.prefix(mapLimit)),
-          ranked: store.nearest,
-          featuredID: store.nearest.first?.id,
-          target: store.target,
-          bays: bays,
-          route: route,
-          camera: $camera,
-          selectedID: $selectedID
-        )
-        .frame(maxHeight: .infinity)
-        FeedStatus(feed: store.feed, bikeCount: store.bikes.count, isRefreshing: store.isRefreshing)
-        if let target = store.target {
-          TargetBanner(target: target, origin: location.coordinate, controller: controller)
-        }
-        BikeList(
-          store: store, location: location, origin: originCoordinate, nearestBay: bays.first,
-          selectedID: $selectedID
-        )
-        .frame(maxHeight: .infinity)
-      }
-      .navigationTitle("Nearby bikes")
-      .navigationBarTitleDisplayMode(.inline)
-      .toolbar {
-        ToolbarItem(placement: .topBarLeading) {
-          if controller.watch.isRunning {
-            Button("Stop watching", systemImage: "eye.slash") {
-              Task { await controller.stopWatching() }
-            }
-          } else {
-            Button("Watch in the background", systemImage: "eye") {
-              controller.startWatching()
-            }
-          }
-        }
-        ToolbarItem(placement: .topBarTrailing) {
-          Button("Settings", systemImage: "gearshape") { isShowingSettings = true }
-        }
-      }
-      .sheet(isPresented: $isShowingSettings) {
-        SettingsView(settings: settings, location: location.coordinate)
-      }
-      .sheet(item: selectedBike) { bike in
-        BikeDetail(
-          bike: bike,
-          walked: store.nearest.first { $0.id == bike.id },
-          controller: controller
-        )
-        .presentationDetents([.height(320)])
-        .presentationBackgroundInteraction(.enabled)
-      }
+    BikeMap(
+      bikes: Array(store.bikes.prefix(mapLimit)),
+      ranked: store.nearest,
+      featuredID: featuredID,
+      target: store.target,
+      bays: bays,
+      route: route,
+      camera: $camera,
+      selectedID: $selectedID
+    )
+    .safeAreaInset(edge: .top) {
+      MapControls(
+        origin: $origin, isShowingSettings: $isShowingSettings, controller: controller,
+        settings: settings, location: location.coordinate)
+    }
+    .safeAreaPadding(.bottom, BikeSheet.collapsedHeight)
+    .sheet(isPresented: .constant(true)) {
+      BikeSheet(
+        controller: controller, location: location, settings: settings, origin: origin,
+        originCoordinate: originCoordinate, nearestBay: bays.first,
+        selectedID: $selectedID, isShowingSettings: $isShowingSettings
+      )
+      .presentationDetents([BikeSheet.collapsed, .medium, .large], selection: $detent)
+      .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+      .presentationDragIndicator(.visible)
+      .interactiveDismissDisabled()
     }
     .onAppear { location.start() }
     .task { await parking.load() }
     .task(id: selectedID) {
       route = nil
-      if let bike = selectedBike.wrappedValue, let origin = originCoordinate {
+      if let bike = selectedBike, let origin = originCoordinate {
         route = await Handoff.route(from: origin, to: bike)
       }
     }
@@ -94,6 +67,7 @@ struct NearbyView: View {
       }
     }
     .onChange(of: origin) {
+      selectedID = nil
       if let coordinate = originCoordinate, origin != .here {
         camera = .region(
           MKCoordinateRegion(
@@ -104,6 +78,11 @@ struct NearbyView: View {
     }
   }
 
+  /// The bike with the large marker: the target, or else the nearest bike.
+  private var featuredID: String? {
+    store.target?.bike.id ?? store.nearest.first?.id
+  }
+
   /// The parking bays nearest to the origin.
   private var bays: [ParkingBay] {
     parking.nearest(to: originCoordinate, count: 8)
@@ -111,6 +90,10 @@ struct NearbyView: View {
 
   private var originCoordinate: Coordinate? {
     origin.coordinate(location: location.coordinate, settings: settings)
+  }
+
+  private var selectedBike: Bike? {
+    store.bikes.first { $0.id == selectedID }
   }
 
   /// The values that restart the refresh loop when they change.
@@ -129,129 +112,127 @@ struct NearbyView: View {
       origin: origin,
       settings: settings.values)
   }
-
-  private var selectedBike: Binding<Bike?> {
-    Binding(
-      get: { store.bikes.first { $0.id == selectedID } },
-      set: { selectedID = $0?.id }
-    )
-  }
 }
 
-/// The bike the rider is walking to.
-struct TargetBanner: View {
-  let target: Target
-  let origin: Coordinate?
+/// The controls above the map.
+struct MapControls: View {
+  @Binding var origin: Origin
+  @Binding var isShowingSettings: Bool
   let controller: CommuteController
+  let settings: Settings
+  let location: Coordinate?
 
   var body: some View {
-    HStack {
-      Image(systemName: target.isReserved ? "clock.badge.checkmark" : "figure.walk")
-      if let origin {
-        Text(
-          "\(Int(distanceM(a: origin, b: target.bike.coordinate))) m to your \(target.isReserved ? "reserved " : "")bike"
-        )
-      } else {
-        Text(target.isReserved ? "Your bike is reserved" : "Walking to your bike")
-      }
+    HStack(spacing: 8) {
+      OriginMenu(origin: $origin, settings: settings, location: location)
       Spacer()
-      if Handoff.rentalURL(for: target.bike) != nil {
-        if !target.isReserved {
-          Button("Reserve") {
-            controller.reserve(target.bike)
-          }
-          .buttonStyle(.bordered)
-        }
-        Button("Unlock") {
-          controller.arrived()
-          Task { await Handoff.openInMoby(target.bike) }
-        }
-        .buttonStyle(.borderedProminent)
+      WatchControl(controller: controller)
+      Button {
+        isShowingSettings = true
+      } label: {
+        Image(systemName: "gearshape.fill")
+          .foregroundStyle(.secondary)
+          .frame(width: 44, height: 44)
+          .background(.regularMaterial, in: Circle())
       }
-      Button("Cancel", systemImage: "xmark") {
-        controller.arrived()
-      }
-      .labelStyle(.iconOnly)
-      .buttonStyle(.bordered)
+      .buttonStyle(.plain)
+      .accessibilityLabel("Settings")
     }
-    .font(.subheadline)
-    .padding(.horizontal)
-    .padding(.vertical, 8)
-    .background(.green.opacity(0.15))
+    .font(.subheadline.weight(.semibold))
+    .padding(.horizontal, 16)
+    .padding(.top, 4)
   }
 }
 
 /// Chooses where to search from.
-struct OriginPicker: View {
+struct OriginMenu: View {
   @Binding var origin: Origin
   let settings: Settings
   let location: Coordinate?
 
   var body: some View {
-    HStack {
+    Menu {
       Picker("Search from", selection: $origin) {
         ForEach(Origin.allCases) { origin in
-          Text(origin.title).tag(origin)
+          Label(origin.title, systemImage: origin.systemImage).tag(origin)
         }
       }
-      .pickerStyle(.segmented)
-      Button("Nearest saved place", systemImage: "scope") {
-        if let nearest = Origin.nearestPlace(to: location, settings: settings) {
+      if let nearest = Origin.nearestPlace(to: location, settings: settings) {
+        Button("Nearest Saved Place", systemImage: "scope") {
           origin = nearest
         }
       }
-      .labelStyle(.iconOnly)
-      .disabled(settings.values.places.isEmpty || location == nil)
+    } label: {
+      HStack(spacing: 6) {
+        Image(systemName: origin.systemImage)
+          .foregroundStyle(Theme.accent)
+        Text(origin.title)
+          .foregroundStyle(.primary)
+        Image(systemName: "chevron.down")
+          .font(.caption2.weight(.bold))
+          .foregroundStyle(.secondary)
+      }
+      .padding(.horizontal, 14)
+      .frame(height: 44)
+      .background(.regularMaterial, in: Capsule())
     }
-    .padding(.horizontal)
-    .padding(.vertical, 8)
+    .buttonStyle(.plain)
+    .accessibilityLabel("Search from \(origin.title)")
   }
 }
 
-struct BikeList: View {
-  let store: BikeStore
-  let location: LocationProvider
-  let origin: Coordinate?
-  let nearestBay: ParkingBay?
-  @Binding var selectedID: String?
+/// Shows whether the app watches in the background, and starts or stops it.
+struct WatchControl: View {
+  let controller: CommuteController
 
   var body: some View {
-    List {
-      if let nearestBay {
-        Label {
-          Text(
-            "Nearest parking bay: \(Units.metres(nearestBay.distanceM))"
-          )
-        } icon: {
-          Image(systemName: "parkingsign.circle")
-            .foregroundStyle(.blue)
+    if let end = controller.watchEnd {
+      Menu {
+        Section(Self.description(of: end)) {
+          Button("Stop Watching", systemImage: "stop.fill", role: .destructive) {
+            Task { await controller.stopWatching() }
+          }
         }
-        .font(.subheadline)
-      }
-      if location.isDenied {
-        Text("Location access is off. Turn it on in Settings to find nearby bikes.")
-      } else if origin == nil {
-        Text("Finding your location…")
-      }
-      if let error = store.lastError {
-        Text(error).foregroundStyle(.red)
-      }
-      ForEach(store.nearest) { walked in
-        Button {
-          selectedID = walked.id
-        } label: {
-          BikeRow(walked: walked)
+      } label: {
+        HStack(spacing: 6) {
+          Image(systemName: "dot.radiowaves.left.and.right")
+            .symbolEffect(.variableColor.iterative, options: .repeat(.continuous))
+          Text("Watching")
         }
-        .tint(.primary)
+        .foregroundStyle(Theme.onAccent)
+        .padding(.horizontal, 14)
+        .frame(height: 44)
+        .background(Theme.accent, in: Capsule())
       }
-      Attribution()
-        .listRowSeparator(.hidden)
+      .buttonStyle(.plain)
+      .accessibilityLabel("Watching. \(Self.description(of: end))")
+    } else {
+      Button {
+        controller.startWatching()
+      } label: {
+        HStack(spacing: 6) {
+          Image(systemName: "dot.radiowaves.left.and.right")
+            .foregroundStyle(.secondary)
+          Text("Watch")
+            .foregroundStyle(.primary)
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 44)
+        .background(.regularMaterial, in: Capsule())
+      }
+      .buttonStyle(.plain)
+      .accessibilityHint("Keeps the nearest bike up to date on the Lock Screen")
     }
-    .listStyle(.plain)
-    .refreshable {
-      if let origin {
-        await store.refresh(from: origin)
-      }
+  }
+
+  static func description(of end: WatchEnd) -> String {
+    switch end {
+    case .reachingBike:
+      "The Lock Screen shows your bike until you reach it."
+    case .windowEnd(let date):
+      "The Lock Screen shows the nearest bike until \(date.formatted(date: .omitted, time: .shortened))."
+    case .stopped:
+      "The Lock Screen shows the nearest bike until you stop watching."
     }
   }
 }

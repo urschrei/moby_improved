@@ -44,6 +44,13 @@ enum Origin: Hashable, Identifiable {
     }
   }
 
+  var systemImage: String {
+    switch self {
+    case .here: "location.fill"
+    case .place(let kind): kind.systemImage
+    }
+  }
+
   /// Returns the coordinate of the origin, if it is known.
   @MainActor
   func coordinate(location: Coordinate?, settings: Settings) -> Coordinate? {

@@ -22,7 +22,6 @@ struct BikeMap: View {
   var body: some View {
     Map(position: $camera, selection: $selectedID) {
       UserAnnotation()
-        .tint(.blue)
 
       if showsBays {
         ForEach(Array(bays.enumerated()), id: \.offset) { _, bay in
@@ -74,6 +73,9 @@ struct BikeMap: View {
       }
     }
     .mapStyle(.standard(pointsOfInterest: .excludingAll))
+    // The user location and the map controls use the system blue, so that
+    // they do not look like bikes.
+    .tint(.blue)
     .onMapCameraChange { context in
       cameraDistance = context.camera.distance
     }

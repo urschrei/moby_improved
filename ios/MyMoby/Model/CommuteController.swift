@@ -3,6 +3,16 @@ import MobyKit
 import Observation
 import UIKit
 
+/// The condition that stops watching.
+enum WatchEnd: Equatable {
+  /// Watching stops when the rider reaches the chosen bike.
+  case reachingBike
+  /// Watching stops at the end of the commute window.
+  case windowEnd(Date)
+  /// Watching stops when the rider stops it.
+  case stopped
+}
+
 /// Runs the refresh loop, and keeps the app watching in the background during
 /// a commute or while the rider walks to a bike.
 @MainActor
@@ -16,9 +26,9 @@ final class CommuteController {
   /// refresh at once.
   @ObservationIgnored private var sleeper: Task<Void, Never>?
 
-  /// `true` if the rider started watching with the toolbar button. Watching
+  /// `true` if the rider started watching with the Watch button. Watching
   /// then continues outside commute windows until the rider stops it.
-  private var isWatchingManually = false
+  private(set) var isWatchingManually = false
 
   /// `true` if the rider stopped watching during the current commute window.
   /// The app then does not start watching again until the window ends.
@@ -84,6 +94,18 @@ final class CommuteController {
     isStoppedForWindow = settings.isCommuting()
     store.clearTarget()
     await watch.stop()
+  }
+
+  /// The condition that stops watching, or `nil` if the app does not watch.
+  var watchEnd: WatchEnd? {
+    guard watch.isRunning else { return nil }
+    if store.target != nil {
+      return .reachingBike
+    }
+    if !isWatchingManually, let end = settings.commuteEnd() {
+      return .windowEnd(end)
+    }
+    return .stopped
   }
 
   /// Refreshes until the task is cancelled.

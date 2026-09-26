@@ -50,6 +50,20 @@ final class Settings {
       ?? false
   }
 
+  /// Returns the end of the commute window that contains `date`, or `nil`
+  /// if `date` is not in a window.
+  func commuteEnd(after date: Date = .now) -> Date? {
+    guard isCommuting(at: date),
+      let boundary =
+        (try? scheduleNextBoundaryMs(
+          windows: validWindows, nowMs: date.milliseconds, timeZone: TimeZone.current.identifier))
+        ?? nil
+    else {
+      return nil
+    }
+    return Date(timeIntervalSince1970: Double(boundary) / 1000)
+  }
+
   /// Returns the time to wait before the next refresh after `date`.
   ///
   /// The wait is shorter in a commute window, and it never goes past the
