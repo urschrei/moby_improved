@@ -143,7 +143,6 @@ struct TargetBanner: View {
   let target: Target
   let origin: Coordinate?
   let controller: CommuteController
-  @Environment(\.openURL) private var openURL
 
   var body: some View {
     HStack {
@@ -154,10 +153,10 @@ struct TargetBanner: View {
         Text("Walking to your bike")
       }
       Spacer()
-      if let url = Handoff.rentalURL(for: target.bike) {
+      if Handoff.rentalURL(for: target.bike) != nil {
         Button("Unlock") {
           controller.arrived()
-          openURL(url)
+          Task { await Handoff.openInMoby(target.bike) }
         }
         .buttonStyle(.borderedProminent)
       }

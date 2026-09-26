@@ -7,7 +7,6 @@ struct BikeDetail: View {
   let bike: Bike
   let walked: WalkedBike?
   let controller: CommuteController
-  @Environment(\.openURL) private var openURL
 
   var body: some View {
     VStack(alignment: .leading, spacing: 16) {
@@ -35,10 +34,10 @@ struct BikeDetail: View {
       }
       .buttonStyle(.bordered)
       .controlSize(.large)
-      if let url = Handoff.rentalURL(for: bike) {
+      if Handoff.rentalURL(for: bike) != nil {
         Button {
           controller.arrived()
-          openURL(url)
+          Task { await Handoff.openInMoby(bike) }
         } label: {
           Label("Open in MOBY", systemImage: "lock.open")
             .frame(maxWidth: .infinity)
