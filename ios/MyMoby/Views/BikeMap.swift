@@ -13,21 +13,23 @@ struct BikeMap: View {
   let route: MKRoute?
   @Binding var camera: MapCameraPosition
   @Binding var selectedID: String?
+  /// The distance of the camera from the map, in metres.
+  @State private var cameraDistance: Double = .infinity
+
+  /// The camera distance below which the map shows parking bays.
+  private let bayDistance: Double = 1500
 
   var body: some View {
     Map(position: $camera, selection: $selectedID) {
       UserAnnotation()
+        .tint(.blue)
 
-      ForEach(Array(bays.enumerated()), id: \.offset) { _, bay in
-        MapPolygon(coordinates: bay.outline.map(\.clLocation))
-          .foregroundStyle(Theme.parking.opacity(0.25))
-          .stroke(Theme.parking, lineWidth: 2)
-      }
-      ForEach(Array(labelledBays.enumerated()), id: \.offset) { _, bay in
-        Annotation("Parking bay", coordinate: bay.centroid.clLocation) {
-          BayMarker()
+      if showsBays {
+        ForEach(Array(bays.enumerated()), id: \.offset) { _, bay in
+          MapPolygon(coordinates: bay.outline.map(\.clLocation))
+            .foregroundStyle(Theme.parking.opacity(0.12))
+            .stroke(Theme.parking.opacity(0.8), lineWidth: 1.5)
         }
-        .annotationTitles(.hidden)
       }
 
       if let route {
@@ -72,20 +74,17 @@ struct BikeMap: View {
       }
     }
     .mapStyle(.standard(pointsOfInterest: .excludingAll))
+    .onMapCameraChange { context in
+      cameraDistance = context.camera.distance
+    }
     .mapControls {
       MapUserLocationButton()
       MapCompass()
     }
   }
 
-  /// The bays that show a label: the nearest three, without a label within
-  /// 40 m of another.
-  private var labelledBays: [ParkingBay] {
-    bays.prefix(3).reduce(into: []) { labelled, bay in
-      if labelled.allSatisfy({ distanceM(a: $0.centroid, b: bay.centroid) > 40 }) {
-        labelled.append(bay)
-      }
-    }
+  private var showsBays: Bool {
+    cameraDistance < bayDistance
   }
 
   /// The bikes that are not ranked and are not the target.
@@ -159,19 +158,6 @@ struct TargetMarker: View {
         .frame(width: 12, height: 7)
     }
     .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
-  }
-}
-
-/// The marker at the centre of a parking bay, which stays visible at every
-/// zoom level.
-struct BayMarker: View {
-  var body: some View {
-    Text("P")
-      .font(.system(size: 11, weight: .heavy, design: .rounded))
-      .foregroundStyle(.white)
-      .frame(width: 18, height: 18)
-      .background(Theme.parking, in: RoundedRectangle(cornerRadius: 4))
-      .overlay { RoundedRectangle(cornerRadius: 4).strokeBorder(.white, lineWidth: 1.5) }
   }
 }
 
