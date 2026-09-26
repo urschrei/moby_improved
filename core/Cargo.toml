@@ -7,6 +7,8 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+rstar = "0.13"
+rstar_geodetic = { git = "https://github.com/urschrei/rstar_geodetic", rev = "02b71a2f2cc3baeb49a5330196248d7c9f49a03d" }
 geo = "0.33"
 jiff = { version = "0.2.37", features = ["serde"] }
 serde = { version = "1.0.229", features = ["derive"] }

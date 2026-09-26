@@ -1,4 +1,4 @@
-doc-valid-idents = ["UniFFI", ".."]
+doc-valid-idents = ["UniFFI", "GeoJSON", ".."]
 
 [[disallowed-methods]]
 path = "std::iter::Iterator::for_each"

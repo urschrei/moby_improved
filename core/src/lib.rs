@@ -6,6 +6,7 @@
 mod error;
 mod freshness;
 pub mod gbfs;
+mod parking;
 mod position;
 mod query;
 mod schedule;
@@ -14,6 +15,9 @@ mod walking;
 
 pub use error::Error;
 pub use freshness::Freshness;
+pub use parking::Bay;
+pub use parking::NearbyBay;
+pub use parking::ParkingIndex;
 pub use position::Position;
 pub use query::Candidate;
 pub use query::Filter;
