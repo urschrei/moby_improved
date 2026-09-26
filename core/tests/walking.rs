@@ -331,3 +331,61 @@ fn cache_removes_routes_that_searches_do_not_use() {
 
     assert!(cache.is_empty());
 }
+
+#[test]
+fn a_cached_route_is_never_shorter_than_the_straight_line() {
+    // Record a 100 m walk to bike 1.
+    let mut cache = WalkCache::default();
+    let mut first = WalkingSearch::new(
+        ORIGIN,
+        vec![candidate(1, 100.0)].into_iter(),
+        nz(1),
+        usize::MAX,
+        &cache,
+    );
+    let requested = first.next_request().unwrap();
+    first.report_route(&requested.vehicle_id, walk(100.0));
+    cache.record(&first);
+
+    // From another point in the same grid cell, bike 1 is 120 m away in a
+    // straight line, so the cached 100 m walk is not possible. Bike 0 is
+    // 110 m away, with a 112 m walk.
+    let mut search = WalkingSearch::new(
+        ORIGIN,
+        vec![candidate(0, 110.0), candidate(1, 120.0)].into_iter(),
+        nz(1),
+        usize::MAX,
+        &cache,
+    );
+    while let Some(requested) = search.next_request() {
+        assert_eq!(requested.vehicle_id, "0");
+        search.report_route(&requested.vehicle_id, walk(112.0));
+    }
+
+    assert!(search.is_complete());
+    assert_eq!(search.results()[0].candidate.vehicle_id, "0");
+}
+
+#[hegel::test]
+fn raising_a_route_keeps_its_speed(tc: TestCase) {
+    let route = Route {
+        distance_m: tc.draw(gs::floats::<f64>().min_value(1.0).max_value(5_000.0)),
+        duration_s: tc.draw(gs::floats::<f64>().min_value(1.0).max_value(5_000.0)),
+    };
+    let floor_m = tc.draw(gs::floats::<f64>().min_value(0.0).max_value(5_000.0));
+
+    let raised = route.at_least(floor_m);
+
+    assert!(raised.distance_m >= floor_m);
+    assert!(raised.distance_m >= route.distance_m);
+    if route.distance_m >= floor_m {
+        assert_eq!(raised, route);
+    } else {
+        let speed = route.distance_m / route.duration_s;
+        let raised_speed = raised.distance_m / raised.duration_s;
+        assert!(
+            (speed - raised_speed).abs() <= speed * 1e-9,
+            "{speed} {raised_speed}"
+        );
+    }
+}

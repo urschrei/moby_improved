@@ -225,8 +225,11 @@ where
             self.is_exhausted = true;
             return None;
         };
+        // The cache reuses a route anywhere in a grid cell, so a cached route
+        // can be shorter than the straight line from this origin. The stop
+        // rule needs every walk to be at least the straight line.
         self.slots.push(match self.cached.get(&candidate) {
-            Some(route) => Slot::Walked(route),
+            Some(route) => Slot::Walked(route.at_least(candidate.straight_line_m)),
             None => Slot::Unrouted,
         });
         self.candidates.push(candidate.clone());
@@ -269,6 +272,22 @@ where
 }
 
 impl Route {
+    /// Returns the route with its length raised to at least `distance_m`,
+    /// and its time raised in proportion.
+    #[must_use]
+    pub fn at_least(self, distance_m: f64) -> Self {
+        if self.distance_m >= distance_m || self.distance_m <= 0.0 {
+            return Self {
+                distance_m: self.distance_m.max(distance_m),
+                ..self
+            };
+        }
+        Self {
+            distance_m,
+            duration_s: self.duration_s * distance_m / self.distance_m,
+        }
+    }
+
     /// Estimates a walking route from a straight-line distance.
     #[must_use]
     pub fn estimate(straight_line_m: f64) -> Self {
