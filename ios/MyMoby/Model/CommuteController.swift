@@ -21,6 +21,8 @@ final class CommuteController {
   let store: BikeStore
   let watch: WatchSession
   let streets = StreetNames()
+  let reports: ReportLog
+  private let location: LocationProvider
   private let settings: Settings
 
   /// The wait before the next refresh. Cancelling it starts the next
@@ -51,10 +53,22 @@ final class CommuteController {
   /// The time of the next refresh, while the loop waits for it.
   private(set) var nextRefresh: Date?
 
-  init(store: BikeStore, settings: Settings, location: LocationProvider) {
+  init(
+    store: BikeStore, settings: Settings, location: LocationProvider,
+    reports: ReportLog = ReportLog()
+  ) {
     self.store = store
     self.settings = settings
+    self.location = location
+    self.reports = reports
     watch = WatchSession(location: location)
+  }
+
+  /// Records that `bike` could not be rented, with the rider's position.
+  func report(_ kind: BikeReport.Kind, reason: BikeReport.Reason? = nil, bike: Bike) {
+    reports.report(
+      kind, reason: reason, bike: bike, rider: location.coordinate,
+      riderAccuracyM: location.accuracyM, feed: store.feed)
   }
 
   /// Starts watching if a commute window is open. Call this when the app
@@ -158,6 +172,9 @@ final class CommuteController {
     while !Task.isCancelled {
       if let origin = origin() {
         let event = await store.refresh(from: origin)
+        if store.lastError == nil, let feed = store.feed {
+          reports.checkListings(in: feed)
+        }
         if let target = store.target {
           Log.refresh.info(
             "target \(target.bike.vehicleId, privacy: .public), opened in MOBY: \(target.isOpenedInMoby)"

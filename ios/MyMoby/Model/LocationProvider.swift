@@ -11,6 +11,8 @@ import Observation
 @Observable
 final class LocationProvider: NSObject, CLLocationManagerDelegate {
   private(set) var coordinate: Coordinate?
+  /// The horizontal accuracy of `coordinate`, in metres.
+  private(set) var accuracyM: Double?
   private(set) var isDenied = false
 
   @ObservationIgnored private let manager = CLLocationManager()
@@ -45,7 +47,11 @@ final class LocationProvider: NSObject, CLLocationManagerDelegate {
       lat: location.coordinate.latitude, lon: location.coordinate.longitude)
     // The manager calls its delegate on the main thread, because it was
     // made on the main thread.
-    MainActor.assumeIsolated { self.coordinate = coordinate }
+    let accuracyM = location.horizontalAccuracy
+    MainActor.assumeIsolated {
+      self.coordinate = coordinate
+      self.accuracyM = accuracyM
+    }
   }
 
   nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
