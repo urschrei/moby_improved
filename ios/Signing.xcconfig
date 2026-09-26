@@ -1,0 +1,10 @@
+// Signing settings. Put your team ID in Local.xcconfig, which is not in
+// version control:
+//
+//   DEVELOPMENT_TEAM = ABCDE12345
+//   MOBY_BUNDLE_ID = ie.urschrei.mymoby
+
+CODE_SIGN_STYLE = Automatic
+MOBY_BUNDLE_ID = ie.urschrei.mymoby
+
+#include? "Local.xcconfig"

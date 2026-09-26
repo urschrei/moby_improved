@@ -31,3 +31,17 @@ test:
 # Run the Swift smoke tests against the macOS slice.
 swift-test: ffi
     cd {{kit}} && swift test
+
+# Generate the Xcode project.
+project:
+    cd ios && xcodegen generate
+
+# Build the app for the iOS 18 simulator.
+app: ffi project
+    xcodebuild -project ios/MyMoby.xcodeproj -scheme MyMoby \
+        -destination 'platform=iOS Simulator,OS=18.6,name=iPhone 16' \
+        -derivedDataPath ios/build build
+
+# Format the Swift sources.
+swift-fmt:
+    xcrun swift-format format -i -r ios/MyMoby ios/MobyKit/Tests ios/MobyKit/Package.swift

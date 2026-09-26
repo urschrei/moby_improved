@@ -1,0 +1,38 @@
+name: MyMoby
+options:
+  bundleIdPrefix: ie.urschrei
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+packages:
+  MobyKit:
+    path: MobyKit
+targets:
+  MyMoby:
+    type: application
+    platform: iOS
+    configFiles:
+      Debug: Signing.xcconfig
+      Release: Signing.xcconfig
+    sources:
+      - path: MyMoby
+      - path: ../core/tests/fixtures/vehicle_status.json
+        buildPhase: resources
+    dependencies:
+      - package: MobyKit
+    info:
+      path: MyMoby/Info.plist
+      properties:
+        CFBundleDisplayName: MyMoby
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSLocationWhenInUseUsageDescription: MyMoby uses your location to find the nearest bikes.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(MOBY_BUNDLE_ID)
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: NO

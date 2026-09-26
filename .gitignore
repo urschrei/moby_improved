@@ -7,3 +7,6 @@ DerivedData/
 .DS_Store
 .build/
 .swiftpm/
+/ios/Local.xcconfig
+/ios/MyMoby.xcodeproj
+/ios/MyMoby/Info.plist
