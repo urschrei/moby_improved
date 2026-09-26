@@ -35,7 +35,10 @@ final class BikeStore {
   /// The bikes with the shortest walk, shortest first.
   private(set) var nearest: [WalkedBike] = []
   private(set) var feed: Feed?
+  /// A message about the last refresh, if it failed.
   private(set) var lastError: String?
+  /// The number of refreshes that failed since the last one that worked.
+  private(set) var failureCount = 0
   private(set) var isRefreshing = false
   private(set) var target: Target?
   /// The origin of the last ranking.
@@ -95,10 +98,12 @@ final class BikeStore {
       self.feed = feed
       bikes = feed.bikes(origin: origin, minRangeM: settings.values.minRangeKm * 1000)
       lastError = nil
+      failureCount = 0
       Log.refresh.info("feed has \(self.bikes.count) bikes with enough range")
     } catch {
       Log.refresh.error("refresh failed: \(error.localizedDescription)")
-      lastError = error.localizedDescription
+      lastError = FeedFailure.message(for: error)
+      failureCount += 1
       return nil
     }
 

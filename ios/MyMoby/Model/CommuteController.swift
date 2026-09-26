@@ -48,6 +48,9 @@ final class CommuteController {
   /// The refresh interval while the rider walks to a bike.
   private let headingInterval: Duration = .seconds(20)
 
+  /// The time of the next refresh, while the loop waits for it.
+  private(set) var nextRefresh: Date?
+
   init(store: BikeStore, settings: Settings, location: LocationProvider) {
     self.store = store
     self.settings = settings
@@ -181,7 +184,8 @@ final class CommuteController {
         // start only in the foreground, so start it now.
         watch.start(state: activityState(origin: origin()))
       }
-      let interval = store.target == nil ? settings.refreshInterval() : headingInterval
+      let interval = refreshInterval()
+      nextRefresh = .now.addingTimeInterval(interval.timeInterval)
       Log.refresh.info("next refresh in \(interval), watching: \(self.watch.isRunning)")
       let sleeper = Task { _ = try? await Task.sleep(for: interval) }
       self.sleeper = sleeper
@@ -191,6 +195,16 @@ final class CommuteController {
         sleeper.cancel()
       }
     }
+  }
+
+  /// Returns the wait before the next refresh. After a failed refresh the
+  /// wait is shorter, and doubles with each further failure: 5 s, 10 s, then
+  /// 20 s. It is never longer than the normal wait.
+  private func refreshInterval() -> Duration {
+    let normal = store.target == nil ? settings.refreshInterval() : headingInterval
+    guard store.failureCount > 0 else { return normal }
+    let retry = Duration.seconds(5 * (1 << (min(store.failureCount, 3) - 1)))
+    return min(normal, retry)
   }
 
   /// Returns `true` if a commute window is open and the rider has not
@@ -265,5 +279,13 @@ final class CommuteController {
   private static func walkLink(_ bike: Bike) -> WalkLink {
     WalkLink(
       vehicleID: bike.vehicleId, latitude: bike.coordinate.lat, longitude: bike.coordinate.lon)
+  }
+}
+
+extension Duration {
+  /// The duration in seconds.
+  var timeInterval: TimeInterval {
+    let (seconds, attoseconds) = components
+    return Double(seconds) + Double(attoseconds) / 1e18
   }
 }

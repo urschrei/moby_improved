@@ -3,8 +3,9 @@ import MobyKit
 
 /// Fetches the MOBY Dublin feeds.
 ///
-/// The client finds the `vehicle_status` URL from the GBFS manifest, and
-/// finds it again after a failed request.
+/// The client finds the `vehicle_status` URL from the GBFS manifest. It finds
+/// the URL again after the server rejects a request or the response does not
+/// parse, but not after a network failure.
 actor GBFSClient: FeedSource {
   static let manifestURL = URL(string: "https://moby-move.rideatom.com/gbfs/v3_0/en/gbfs?id=2023")!
 
@@ -24,7 +25,9 @@ actor GBFSClient: FeedSource {
     do {
       return try Feed.parse(body: try await get(url))
     } catch {
-      vehicleStatusURL = nil
+      if !FeedFailure.isTransient(error) {
+        vehicleStatusURL = nil
+      }
       throw error
     }
   }

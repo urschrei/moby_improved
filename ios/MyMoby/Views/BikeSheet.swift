@@ -58,9 +58,17 @@ struct BikeSheet: View {
           .accessibilityLabel("Settings")
         }
         VStack(alignment: .leading, spacing: 12) {
-          FeedStatus(
-            feed: store.feed, bikeCount: store.bikes.count, minRangeKm: settings.values.minRangeKm,
-            isRefreshing: store.isRefreshing)
+          if let error = store.lastError, store.feed != nil {
+            RefreshFailure(
+              message: error, nextRefresh: controller.nextRefresh,
+              isRefreshing: store.isRefreshing)
+          }
+          // Without a feed, the section above explains the failure.
+          if store.feed != nil || store.lastError == nil {
+            FeedStatus(
+              feed: store.feed, bikeCount: store.bikes.count,
+              minRangeKm: settings.values.minRangeKm, isRefreshing: store.isRefreshing)
+          }
           Attribution()
         }
       }
@@ -89,7 +97,8 @@ struct BikeSheet: View {
     } else {
       EmptySection(
         location: location, settings: settings, origin: origin, originCoordinate: originCoordinate,
-        error: store.lastError, isShowingSettings: $isShowingSettings)
+        error: store.lastError, nextRefresh: controller.nextRefresh,
+        isRefreshing: store.isRefreshing, isShowingSettings: $isShowingSettings)
     }
   }
 
@@ -321,6 +330,8 @@ struct EmptySection: View {
   let origin: Origin
   let originCoordinate: Coordinate?
   let error: String?
+  let nextRefresh: Date?
+  let isRefreshing: Bool
   @Binding var isShowingSettings: Bool
 
   var body: some View {
@@ -341,7 +352,9 @@ struct EmptySection: View {
           .font(.title2.bold())
         Text(error)
           .foregroundStyle(.secondary)
-        Text("Pull down to try again.")
+        RetryCountdown(nextRefresh: nextRefresh, isRefreshing: isRefreshing)
+          .foregroundStyle(.secondary)
+        Text("Pull down to try again now.")
           .foregroundStyle(.secondary)
       } else {
         HStack(spacing: 12) {

@@ -38,6 +38,45 @@ struct FeedStatus: View {
   }
 }
 
+/// The time until the next attempt after a failed refresh, updated every
+/// second.
+struct RetryCountdown: View {
+  let nextRefresh: Date?
+  let isRefreshing: Bool
+
+  var body: some View {
+    TimelineView(.periodic(from: .now, by: 1)) { context in
+      if isRefreshing {
+        Text("Trying again now.")
+      } else if let nextRefresh, nextRefresh > context.date {
+        let seconds = Int(nextRefresh.timeIntervalSince(context.date).rounded(.up))
+        Text("Trying again in \(seconds) s.")
+          .monospacedDigit()
+      }
+    }
+  }
+}
+
+/// A warning that the last refresh failed, above bikes from an earlier one.
+struct RefreshFailure: View {
+  let message: String
+  let nextRefresh: Date?
+  let isRefreshing: Bool
+
+  var body: some View {
+    Label {
+      HStack(spacing: 4) {
+        Text(message)
+        RetryCountdown(nextRefresh: nextRefresh, isRefreshing: isRefreshing)
+      }
+    } icon: {
+      Image(systemName: "wifi.exclamationmark")
+    }
+    .font(.footnote.weight(.semibold))
+    .foregroundStyle(Theme.warning)
+  }
+}
+
 /// A warning that the feed is old.
 struct StaleNotice: View {
   let feed: Feed?
