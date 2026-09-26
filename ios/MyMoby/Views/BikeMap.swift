@@ -71,7 +71,8 @@ struct BikeMap: View {
         ) {
           MinuteBadge(
             minutes: group.leader.walkMinutes,
-            rangeM: group.leader.bike.rangeM,
+            // A shared badge stands for bikes with different ranges.
+            rangeM: group.count == 1 ? group.leader.bike.rangeM : nil,
             count: group.count,
             isFeatured: group.contains(featuredID),
             isSelected: group.contains(selectedID))
@@ -136,9 +137,10 @@ struct BikeMap: View {
 /// A marker with the walking time to a ranked bike.
 struct MinuteBadge: View {
   let minutes: Int
-  /// The range of the bike. The white part of the outline shows it as a part
-  /// of a full battery, clockwise from the top.
-  let rangeM: Double
+  /// The range of the bike, or `nil` for a badge that bikes share. The white
+  /// part of the outline shows it as a part of a full battery, clockwise
+  /// from the top.
+  let rangeM: Double?
   /// The number of bikes that share the badge.
   var count = 1
   let isFeatured: Bool
@@ -166,10 +168,12 @@ struct MinuteBadge: View {
         let width = isSelected ? 3.5 : 2.0
         ZStack {
           Capsule().strokeBorder(Color(.systemBackground), lineWidth: width)
-          CapsuleOutline()
-            .trim(from: 0, to: min(max(rangeM / Theme.fullRangeM, 0), 1))
-            .stroke(.white, style: StrokeStyle(lineWidth: width, lineCap: .round))
-            .padding(width / 2)
+          if let rangeM {
+            CapsuleOutline()
+              .trim(from: 0, to: min(max(rangeM / Theme.fullRangeM, 0), 1))
+              .stroke(.white, style: StrokeStyle(lineWidth: width, lineCap: .round))
+              .padding(width / 2)
+          }
         }
       }
       .background {
