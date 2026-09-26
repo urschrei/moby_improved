@@ -14,6 +14,7 @@ use crate::Candidate;
 use crate::Filter;
 use crate::Position;
 use crate::gbfs::Vehicle;
+use crate::query::Listed;
 
 /// The available vehicles of one feed, indexed for nearest-neighbour queries
 /// on the sphere.
@@ -23,7 +24,7 @@ use crate::gbfs::Vehicle;
 #[derive(Debug)]
 pub struct VehicleIndex {
     tree: GeodeticRTree<IndexedPoint>,
-    vehicles: Vec<IndexedVehicle>,
+    vehicles: Vec<Listed>,
 }
 
 /// The candidates in an index, nearest to an origin first. It borrows the
@@ -49,31 +50,23 @@ impl VehicleIndex {
     /// a range.
     #[must_use]
     pub fn new(vehicles: &[Vehicle]) -> Self {
-        let vehicles: Vec<IndexedVehicle> = vehicles
+        let listed: Vec<(Listed, GeodeticPoint)> = vehicles
             .iter()
-            .filter(|vehicle| vehicle.is_available())
-            .filter_map(|vehicle| {
-                let (lat, lon) = vehicle.position()?;
-                Some(IndexedVehicle {
-                    vehicle_id: vehicle.vehicle_id.clone(),
-                    point: GeodeticPoint::try_new(lon, lat).ok()?,
-                    position: Position::new(lat, lon),
-                    range_m: vehicle.current_range_meters?,
-                    ios_rental_uri: vehicle
-                        .rental_uris
-                        .as_ref()
-                        .and_then(|uris| uris.ios.clone()),
-                })
+            .filter_map(Listed::from_vehicle)
+            .filter_map(|listed| {
+                let point =
+                    GeodeticPoint::try_new(listed.position.lon, listed.position.lat).ok()?;
+                Some((listed, point))
             })
             .collect();
-        let leaves = vehicles
+        let leaves = listed
             .iter()
             .enumerate()
-            .map(|(index, vehicle)| IndexedPoint::new(vehicle.point, index))
+            .map(|(index, (_, point))| IndexedPoint::new(*point, index))
             .collect();
         Self {
             tree: GeodeticRTree::bulk_load(leaves),
-            vehicles,
+            vehicles: listed.into_iter().map(|(listed, _)| listed).collect(),
         }
     }
 
@@ -131,15 +124,6 @@ impl Iterator for SharedNearest {
     }
 }
 
-#[derive(Clone, Debug)]
-struct IndexedVehicle {
-    vehicle_id: String,
-    point: GeodeticPoint,
-    position: Position,
-    range_m: f64,
-    ios_rental_uri: Option<String>,
-}
-
 /// A best-first traversal of the tree that holds no reference to it.
 ///
 /// The queue holds the path to each node as the child indices from the root,
@@ -176,14 +160,8 @@ impl Cursor {
             match node {
                 RTreeNode::Leaf(leaf) => {
                     let vehicle = &index.vehicles[leaf.data];
-                    if vehicle.range_m >= self.filter.min_range_m {
-                        return Some(Candidate {
-                            vehicle_id: vehicle.vehicle_id.clone(),
-                            position: vehicle.position,
-                            range_m: vehicle.range_m,
-                            straight_line_m: self.origin.distance_m(vehicle.position),
-                            ios_rental_uri: vehicle.ios_rental_uri.clone(),
-                        });
+                    if self.filter.accepts(vehicle.range_m) {
+                        return Some(vehicle.candidate(self.origin));
                     }
                 }
                 RTreeNode::Parent(parent) => self.push_children(parent, &pending.path),
