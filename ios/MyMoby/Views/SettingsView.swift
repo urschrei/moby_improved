@@ -5,6 +5,7 @@ import SwiftUI
 struct SettingsView: View {
   @Bindable var settings: Settings
   let location: Coordinate?
+  let reports: ReportLog
   @Environment(\.dismiss) private var dismiss
 
   var body: some View {
@@ -48,6 +49,7 @@ struct SettingsView: View {
         } footer: {
           Text("The app refreshes more often at these times.")
         }
+        ReportsSection(reports: reports)
         Section {
           Attribution()
         } header: {
@@ -224,5 +226,57 @@ struct PlaceEditor: View {
     ).first
     place = Place(name: placemark?.name ?? "Current location", coordinate: location)
     dismiss()
+  }
+}
+
+/// The rider's reports, and the export of them.
+struct ReportsSection: View {
+  let reports: ReportLog
+
+  /// The number of recent reports to list.
+  private let recentCount = 5
+
+  var body: some View {
+    Section {
+      if reports.reports.isEmpty {
+        Text("No reports yet. Touch and hold a bike to report it.")
+          .foregroundStyle(.secondary)
+      } else {
+        ForEach(reports.reports.suffix(recentCount).reversed()) { report in
+          VStack(alignment: .leading, spacing: 2) {
+            Text(report.bikeNumber.map { "Bike \($0)" } ?? "Bike")
+              .font(.body.weight(.semibold))
+            Text(report.title)
+            Text(
+              "\(report.reportedAt.formatted(date: .abbreviated, time: .shortened)), \(listing(of: report))"
+            )
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+          }
+        }
+        ShareLink(
+          item: ReportsCSV(text: reports.csv()),
+          preview: SharePreview("MyMoby reports (\(reports.reports.count))")
+        ) {
+          Label(
+            "Export \(reports.reports.count) Reports as CSV", systemImage: "square.and.arrow.up")
+        }
+      }
+    } header: {
+      Text("Reports")
+    } footer: {
+      Text(
+        "The log is in the Files app, in On My iPhone › MyMoby › reports.jsonl. iCloud Backup includes it. After a report, the app records for 24 hours whether the feed still lists the bike."
+      )
+    }
+  }
+
+  /// Describes the last listing check of `report`.
+  private func listing(of report: BikeReport) -> String {
+    guard let check = reports.lastCheck(for: report) else {
+      return "not checked yet"
+    }
+    let time = check.checkedAt.formatted(date: .omitted, time: .shortened)
+    return check.isListed ? "still listed at \(time)" : "not listed at \(time)"
   }
 }

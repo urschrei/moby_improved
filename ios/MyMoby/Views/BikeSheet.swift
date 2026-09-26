@@ -87,7 +87,7 @@ struct BikeSheet: View {
       }
     }
     .sheet(isPresented: $isShowingSettings) {
-      SettingsView(settings: settings, location: location.coordinate)
+      SettingsView(settings: settings, location: location.coordinate, reports: controller.reports)
     }
   }
 

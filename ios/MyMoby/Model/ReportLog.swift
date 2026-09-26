@@ -1,6 +1,8 @@
 import Foundation
 import MobyKit
 import Observation
+import SwiftUI
+import UniformTypeIdentifiers
 
 /// The rider's reports of bikes that could not be rented, and later checks of
 /// whether the feed still lists them.
@@ -89,11 +91,9 @@ final class ReportLog {
     }
   }
 
-  /// Writes the reports as CSV to a temporary file, and returns its URL.
-  func exportCSV() throws -> URL {
-    let url = URL.temporaryDirectory.appending(path: "MyMoby reports.csv")
-    try csv().write(to: url, atomically: true, encoding: .utf8)
-    return url
+  /// Returns the last listing check for `report`, if the app made one.
+  func lastCheck(for report: BikeReport) -> ListingCheck? {
+    checks[report.id]?.last
   }
 
   /// Returns the reports as CSV, one row for each report, with the result of
@@ -202,5 +202,15 @@ extension Feed {
   /// The time of the feed.
   var updatedAt: Date {
     Date(timeIntervalSince1970: Double(lastUpdatedMs()) / 1000)
+  }
+}
+
+/// The reports as a CSV file, for the share sheet.
+struct ReportsCSV: Transferable {
+  let text: String
+
+  static var transferRepresentation: some TransferRepresentation {
+    DataRepresentation(exportedContentType: .commaSeparatedText) { Data($0.text.utf8) }
+      .suggestedFileName("MyMoby reports.csv")
   }
 }
