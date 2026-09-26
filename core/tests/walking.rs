@@ -389,3 +389,26 @@ fn raising_a_route_keeps_its_speed(tc: TestCase) {
         );
     }
 }
+
+#[hegel::test]
+fn a_cache_needs_positive_finite_cell_sizes(tc: TestCase) {
+    let size = |tc: &TestCase| {
+        tc.draw(gs::sampled_from(vec![
+            0.0,
+            -10.0,
+            f64::NAN,
+            f64::INFINITY,
+            0.5,
+            25.0,
+            1_000.0,
+        ]))
+    };
+    let origin_cell_m = size(&tc);
+    let vehicle_cell_m = size(&tc);
+    let is_valid = |size_m: f64| size_m.is_finite() && size_m > 0.0;
+
+    assert_eq!(
+        WalkCache::new(origin_cell_m, vehicle_cell_m).is_some(),
+        is_valid(origin_cell_m) && is_valid(vehicle_cell_m)
+    );
+}

@@ -290,14 +290,16 @@ impl WalkCache {
     pub const MAX_IDLE_SEARCHES: u64 = 20;
 
     /// Makes an empty cache with the given grid cell sizes in metres.
+    /// Returns `None` unless both sizes are finite and more than zero.
     #[must_use]
-    pub fn new(origin_cell_m: f64, vehicle_cell_m: f64) -> Self {
-        Self {
+    pub fn new(origin_cell_m: f64, vehicle_cell_m: f64) -> Option<Self> {
+        let is_valid = |size_m: f64| size_m.is_finite() && size_m > 0.0;
+        (is_valid(origin_cell_m) && is_valid(vehicle_cell_m)).then(|| Self {
             origin_cell_m,
             vehicle_cell_m,
             entries: HashMap::new(),
             generation: 0,
-        }
+        })
     }
 
     /// Stores the routes that a search found, and removes routes that no
@@ -360,7 +362,12 @@ impl WalkCache {
 impl Default for WalkCache {
     /// A cache with 25 m origin cells and 10 m vehicle cells.
     fn default() -> Self {
-        Self::new(25.0, 10.0)
+        Self {
+            origin_cell_m: 25.0,
+            vehicle_cell_m: 10.0,
+            entries: HashMap::new(),
+            generation: 0,
+        }
     }
 }
 
