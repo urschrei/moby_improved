@@ -71,9 +71,9 @@ struct NearbyView: View {
         controller.appDidBecomeActive()
       }
     }
-    .onChange(of: originCoordinate) {
+    .task(id: originCoordinate) {
       if let originCoordinate {
-        controller.originMoved(to: originCoordinate)
+        await controller.originMoved(to: originCoordinate)
       }
     }
     .onChange(of: origin) {

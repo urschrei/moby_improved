@@ -63,6 +63,15 @@ final class BikeStore {
     target = nil
   }
 
+  /// Ranks the bikes near `origin` in the last feed, without a fetch.
+  func rerank(from origin: Coordinate) async {
+    guard let feed, target == nil, !isRefreshing else { return }
+    isRefreshing = true
+    defer { isRefreshing = false }
+    bikes = feed.bikes(origin: origin, minRangeM: settings.values.minRangeKm * 1000)
+    await rank(from: origin)
+  }
+
   /// Removes the bikes of the previous origin, so that the rider does not see
   /// them while the store ranks the bikes near a new origin.
   func clearBikes() {
@@ -120,7 +129,11 @@ final class BikeStore {
 
   private func rank(from origin: Coordinate) async {
     rankedFrom = origin
+    // The search finds the bikes with the shortest walk by distance. The app
+    // shows walking times, so sort by time.
     nearest = await router.rank(
-      origin: origin, bikes: bikes, k: rankedCount, maxRequests: maxRoutingRequests)
+      origin: origin, bikes: bikes, k: rankedCount, maxRequests: maxRoutingRequests
+    )
+    .sorted { $0.walkingS < $1.walkingS }
   }
 }
