@@ -96,6 +96,14 @@ xcrun simctl launch booted ie.urschrei.mymoby -replay
 
 Tap **Walk**. On the next refresh the app replaces it with another bike.
 
+### Testing a failed refresh
+
+Debug builds accept `-fail-first N`. With it, the first `N` refreshes time out, and the app then fetches the live feed. The app tries again after 5 s, 10 s and 20 s.
+
+```bash
+xcrun simctl launch booted ie.urschrei.mymoby -fail-first 3
+```
+
 ## Layout
 
 | Path | Contents |
