@@ -10,8 +10,6 @@ struct BikeActivityAttributes: ActivityAttributes {
       case watching
       /// The activity shows the bike the rider is walking to.
       case heading
-      /// The activity shows the bike the rider has reserved.
-      case reserved
     }
 
     var mode: Mode

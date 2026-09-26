@@ -68,7 +68,7 @@ struct BikeMap: View {
         Annotation(
           "Your bike", coordinate: target.bike.coordinate.clLocation, anchor: .bottom
         ) {
-          TargetMarker(isReserved: target.isReserved)
+          TargetMarker()
         }
         .annotationTitles(.hidden)
         .tag(target.bike.id)
@@ -145,11 +145,10 @@ struct BikeDot: View {
 
 /// The marker for the bike the rider is walking to.
 struct TargetMarker: View {
-  let isReserved: Bool
 
   var body: some View {
     VStack(spacing: 0) {
-      Image(systemName: isReserved ? "clock.badge.checkmark.fill" : "bicycle")
+      Image(systemName: "bicycle")
         .font(.system(size: 18, weight: .bold))
         .foregroundStyle(Theme.onAccent)
         .frame(width: 40, height: 40)

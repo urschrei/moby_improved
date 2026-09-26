@@ -83,15 +83,12 @@ final class CommuteController {
     }
   }
 
-  /// Makes `bike` the target, marks it as reserved, and opens it in the
-  /// MOBY app so that the rider can reserve it there.
-  ///
-  /// The bike is marked before the rider reserves it: otherwise a refresh
-  /// while the rider is in the MOBY app would report it as rented.
-  func reserve(_ bike: Bike) {
-    store.setTarget(bike, isReserved: true)
+  /// Makes `bike` the target and opens it in the MOBY app, usually so that
+  /// the rider can unlock it. When the bike then leaves the feed, the rider
+  /// has it, and the app stops watching it without an alert.
+  func openInMoby(_ bike: Bike) {
+    store.setTarget(bike, isOpenedInMoby: true)
     watch.start(state: activityState(origin: nil))
-    sleeper?.cancel()
     Task { await Handoff.openInMoby(bike) }
   }
 
@@ -155,13 +152,15 @@ final class CommuteController {
         let event = await store.refresh(from: origin)
         if let target = store.target {
           Log.refresh.info(
-            "target \(target.bike.vehicleId, privacy: .public), reserved: \(target.isReserved)")
+            "target \(target.bike.vehicleId, privacy: .public), opened in MOBY: \(target.isOpenedInMoby)"
+          )
         }
         if let event {
           announce(event)
         }
         if watch.isRunning {
-          await watch.update(activityState(origin: origin, event: event), alert: event != nil)
+          await watch.update(
+            activityState(origin: origin, event: event), alert: Self.message(for: event) != nil)
         }
       }
       if watch.isRunning, store.target == nil, !isWatchingManually, !settings.isCommuting() {
@@ -200,17 +199,25 @@ final class CommuteController {
     case .replaced: "Your bike was taken. Walking to the next one."
     case .lost: "Your bike was taken. No other bike is near."
     case .moved: "Your bike moved."
-    case nil: nil
+    case .taken, nil: nil
     }
   }
 
   private func announce(_ event: TargetEvent) {
     Log.refresh.info("target event: \(String(describing: event), privacy: .public)")
-    UINotificationFeedbackGenerator().notificationOccurred(.warning)
     switch event {
-    case .replaced(let next): Notifier.shared.bikeReplaced(by: next)
-    case .lost: Notifier.shared.bikeLost()
-    case .moved(let coordinate): Notifier.shared.bikeMoved(to: coordinate)
+    case .replaced(let next):
+      UINotificationFeedbackGenerator().notificationOccurred(.warning)
+      Notifier.shared.bikeReplaced(by: next)
+    case .lost:
+      UINotificationFeedbackGenerator().notificationOccurred(.warning)
+      Notifier.shared.bikeLost()
+    case .moved(let coordinate):
+      UINotificationFeedbackGenerator().notificationOccurred(.warning)
+      Notifier.shared.bikeMoved(to: coordinate)
+    case .taken:
+      // The rider has the bike, so there is nothing to tell them.
+      break
     }
   }
 
@@ -227,7 +234,7 @@ final class CommuteController {
     }
     if let target = store.target {
       return BikeActivityAttributes.ContentState(
-        mode: target.isReserved ? .reserved : .heading,
+        mode: .heading,
         walkMinutes: nil,
         distanceM: origin.map { Int(distanceM(a: $0, b: target.bike.coordinate)) },
         rangeKm: Int(target.bike.rangeM / 1000),

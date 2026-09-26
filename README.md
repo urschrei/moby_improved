@@ -64,7 +64,7 @@ The app watches in the background only if it starts in the foreground. A Shortcu
 
 In a commute window, the app starts watching when it opens. It stops at the end of the window unless you are walking to a bike.
 
-### If Unlock goes to the App Store
+### If Open in MOBY goes to the App Store
 
 The rental links are Branch universal links on `moby-move.app.link`. If iOS has recorded a choice to open that domain in Safari, the link goes to the App Store instead of the MOBY app. To open the domain in the MOBY app again:
 

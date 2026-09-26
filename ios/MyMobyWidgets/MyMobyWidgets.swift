@@ -145,14 +145,13 @@ extension BikeActivityAttributes.ContentState {
     switch mode {
     case .watching: "Nearest bike"
     case .heading: "Walking to your bike"
-    case .reserved: "Reserved in MOBY"
     }
   }
 
   /// The number and unit of the headline, or `nil` if there is no bike.
   var headlineParts: (String, String)? {
     switch mode {
-    case .heading, .reserved:
+    case .heading:
       distanceM.map { ("\(($0 + 5) / 10 * 10)", "m to go") }
     case .watching:
       walkMinutes.map { ("\($0)", "min walk") }
@@ -161,7 +160,7 @@ extension BikeActivityAttributes.ContentState {
 
   var shortHeadline: String {
     switch mode {
-    case .heading, .reserved: distanceM.map { "\(($0 + 5) / 10 * 10) m" } ?? "–"
+    case .heading: distanceM.map { "\(($0 + 5) / 10 * 10) m" } ?? "–"
     case .watching: walkMinutes.map { "\($0) min" } ?? "–"
     }
   }

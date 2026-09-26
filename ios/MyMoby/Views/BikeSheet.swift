@@ -14,7 +14,7 @@ struct BikeSheet: View {
   @Binding var isShowingSettings: Bool
 
   /// The height of the sheet when it shows only the featured bike.
-  static let collapsedHeight: CGFloat = 316
+  static let collapsedHeight: CGFloat = 258
   static let collapsed = PresentationDetent.height(collapsedHeight)
 
   private var store: BikeStore { controller.store }
@@ -225,7 +225,7 @@ struct BikeActions: View {
   let controller: CommuteController
 
   var body: some View {
-    VStack(spacing: 8) {
+    HStack(spacing: 8) {
       Button {
         controller.walk(to: bike)
       } label: {
@@ -235,20 +235,11 @@ struct BikeActions: View {
       .buttonStyle(.borderedProminent)
       .foregroundStyle(Theme.onAccent)
       if Handoff.rentalURL(for: bike) != nil {
-        HStack(spacing: 8) {
-          Button {
-            controller.reserve(bike)
-          } label: {
-            Label("Reserve", systemImage: "clock.badge.checkmark")
-              .frame(maxWidth: .infinity)
-          }
-          Button {
-            controller.arrived()
-            Task { await Handoff.openInMoby(bike) }
-          } label: {
-            Label("Unlock", systemImage: "lock.open")
-              .frame(maxWidth: .infinity)
-          }
+        Button {
+          controller.openInMoby(bike)
+        } label: {
+          Text("Open in MOBY")
+            .frame(maxWidth: .infinity)
         }
         .buttonStyle(.bordered)
       }
@@ -274,8 +265,8 @@ struct TargetSection: View {
     VStack(alignment: .leading, spacing: 16) {
       VStack(alignment: .leading, spacing: 2) {
         Label(
-          target.isReserved ? "Reserved in MOBY" : "Walking to your bike",
-          systemImage: target.isReserved ? "clock.badge.checkmark.fill" : "figure.walk"
+          target.isOpenedInMoby ? "Opened in MOBY" : "Walking to your bike",
+          systemImage: target.isOpenedInMoby ? "arrow.up.forward.app.fill" : "figure.walk"
         )
         .font(.subheadline.weight(.semibold))
         .foregroundStyle(Theme.accent)
@@ -294,10 +285,9 @@ struct TargetSection: View {
       HStack(spacing: 10) {
         if Handoff.rentalURL(for: target.bike) != nil {
           Button {
-            controller.arrived()
-            Task { await Handoff.openInMoby(target.bike) }
+            controller.openInMoby(target.bike)
           } label: {
-            Label("Unlock", systemImage: "lock.open.fill")
+            Text("Open in MOBY")
               .frame(maxWidth: .infinity)
           }
           .buttonStyle(.borderedProminent)
@@ -314,11 +304,6 @@ struct TargetSection: View {
       .font(.body.weight(.semibold))
       .controlSize(.large)
       HStack {
-        if !target.isReserved, Handoff.rentalURL(for: target.bike) != nil {
-          Button("Reserve in MOBY") {
-            controller.reserve(target.bike)
-          }
-        }
         Spacer()
         Button("Choose Another Bike") {
           controller.arrived()

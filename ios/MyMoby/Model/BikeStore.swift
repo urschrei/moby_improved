@@ -8,9 +8,9 @@ struct Target: Equatable {
   /// The position of the bike when the rider chose it.
   var chosenAt: Coordinate
   var chosenOn: Date
-  /// `true` if the rider has reserved the bike in the MOBY app. The feed then
-  /// shows the bike as reserved, or not at all, so the store does not check it.
-  var isReserved = false
+  /// `true` if the rider opened the bike in the MOBY app, usually to unlock
+  /// it. If the bike then leaves the feed, the rider has it.
+  var isOpenedInMoby = false
 }
 
 /// A change to the target after a refresh.
@@ -21,6 +21,9 @@ enum TargetEvent {
   case lost
   /// The target moved to a new position.
   case moved(Coordinate)
+  /// The target left the feed after the rider opened it in MOBY, so the
+  /// rider has it.
+  case taken
 }
 
 /// The bikes near the current origin, and the state of the last refresh.
@@ -54,9 +57,10 @@ final class BikeStore {
     self.settings = settings
   }
 
-  func setTarget(_ bike: Bike, isReserved: Bool = false) {
+  func setTarget(_ bike: Bike, isOpenedInMoby: Bool = false) {
     target = Target(
-      bike: bike, chosenAt: bike.coordinate, chosenOn: .now, isReserved: isReserved)
+      bike: bike, chosenAt: bike.coordinate, chosenOn: .now,
+      isOpenedInMoby: isOpenedInMoby)
   }
 
   func clearTarget() {
@@ -105,9 +109,6 @@ final class BikeStore {
       await rank(from: origin)
       return nil
     }
-    if target.isReserved {
-      return nil
-    }
     switch feed.targetStatus(vehicleId: target.bike.vehicleId, chosenAt: target.chosenAt) {
     case .available:
       return nil
@@ -115,6 +116,9 @@ final class BikeStore {
       self.target?.bike.coordinate = coordinate
       self.target?.chosenAt = coordinate
       return .moved(coordinate)
+    case .gone where target.isOpenedInMoby:
+      self.target = nil
+      return .taken
     case .gone:
       await rank(from: origin)
       if let next = nearest.first {
