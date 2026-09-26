@@ -8,6 +8,7 @@ mod freshness;
 pub mod gbfs;
 mod position;
 mod query;
+mod schedule;
 mod walking;
 
 pub use error::Error;
@@ -16,6 +17,9 @@ pub use position::Position;
 pub use query::Candidate;
 pub use query::Filter;
 pub use query::candidates;
+pub use schedule::CommuteWindow;
+pub use schedule::Schedule;
+pub use schedule::Weekdays;
 pub use walking::RankedVehicle;
 pub use walking::Route;
 pub use walking::WalkCache;
