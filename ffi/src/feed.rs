@@ -32,6 +32,17 @@ pub fn vehicle_status_url(manifest: &[u8]) -> Result<String, MobyError> {
     Ok(manifest.data.require(FeedName::VehicleStatus)?.to_owned())
 }
 
+/// Returns the URL of the `geofencing_zones` feed from a `gbfs.json` body.
+///
+/// # Errors
+///
+/// Returns an error if the body does not parse or does not list the feed.
+#[uniffi::export]
+pub fn geofencing_zones_url(manifest: &[u8]) -> Result<String, MobyError> {
+    let manifest = Manifest::from_slice(manifest)?;
+    Ok(manifest.data.require(FeedName::GeofencingZones)?.to_owned())
+}
+
 /// Returns the great-circle distance in metres between two positions.
 #[uniffi::export]
 #[must_use]
