@@ -1,0 +1,28 @@
+[package]
+name = "moby-ffi"
+version = "0.1.0"
+description = "UniFFI bindings for moby-core"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+name = "moby_ffi"
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+required-features = ["bindgen"]
+
+[features]
+bindgen = ["uniffi/cli"]
+
+[dependencies]
+jiff = "0.2.37"
+moby-core = { path = "../core" }
+thiserror = "2.0.21"
+uniffi = "0.32.2"
+
+[lints]
+workspace = true

@@ -1,3 +1,5 @@
+doc-valid-idents = ["UniFFI", ".."]
+
 [[disallowed-methods]]
 path = "std::iter::Iterator::for_each"
 reason = "for_each is to Iterator what an initializer is for a type (F-PURE-MUT)"

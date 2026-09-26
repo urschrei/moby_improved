@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["core"]
+members = ["core", "ffi"]
 
 [workspace.package]
 edition = "2024"
@@ -15,3 +15,7 @@ missing_docs = "warn"
 pedantic = { level = "warn", priority = -1 }
 self_named_module_files = "warn"
 wildcard_enum_match_arm = "warn"
+
+[profile.release]
+lto = true
+codegen-units = 1
