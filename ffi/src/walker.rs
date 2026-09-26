@@ -1,5 +1,4 @@
 use std::num::NonZeroUsize;
-use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
 
@@ -52,7 +51,7 @@ impl Walker {
     pub fn start(
         &self,
         origin: Coordinate,
-        feed: &Arc<Feed>,
+        feed: &Feed,
         min_range_m: f64,
         k: u32,
         max_requests: u32,

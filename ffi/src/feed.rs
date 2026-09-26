@@ -103,6 +103,13 @@ impl Feed {
             .map(Bike::from)
             .collect()
     }
+
+    /// Returns the state of the bike `vehicle_id`, which the rider chose at
+    /// `chosen_at`.
+    #[must_use]
+    pub fn target_status(&self, vehicle_id: &str, chosen_at: Coordinate) -> TargetStatus {
+        moby_core::target_status(&self.envelope.data.vehicles, vehicle_id, chosen_at.into()).into()
+    }
 }
 
 impl Feed {
@@ -111,15 +118,5 @@ impl Feed {
     pub(crate) fn nearest(&self, origin: Coordinate, min_range_m: f64) -> SharedNearest {
         self.index
             .shared_nearest(origin.into(), Filter { min_range_m })
-    }
-}
-
-#[uniffi::export]
-impl Feed {
-    /// Returns the state of the bike `vehicle_id`, which the rider chose at
-    /// `chosen_at`.
-    #[must_use]
-    pub fn target_status(&self, vehicle_id: &str, chosen_at: Coordinate) -> TargetStatus {
-        moby_core::target_status(&self.envelope.data.vehicles, vehicle_id, chosen_at.into()).into()
     }
 }
