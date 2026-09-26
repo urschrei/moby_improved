@@ -48,7 +48,7 @@ struct BikeMap: View {
         .tag(bike.id)
       }
 
-      ForEach(ranked) { walked in
+      ForEach(ranked.filter { $0.id != target?.bike.id }) { walked in
         Annotation(
           "Bike, \(walked.walkMinutes) minute walk", coordinate: walked.bike.coordinate.clLocation,
           anchor: .bottom
