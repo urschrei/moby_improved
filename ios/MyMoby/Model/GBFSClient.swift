@@ -29,6 +29,15 @@ actor GBFSClient: FeedSource {
     }
   }
 
+  /// Returns the `geofencing_zones` response body.
+  func geofencingZones() async throws -> Data {
+    let manifest = try await get(Self.manifestURL)
+    guard let url = URL(string: try MobyKit.geofencingZonesUrl(manifest: manifest)) else {
+      throw URLError(.badURL)
+    }
+    return try await get(url)
+  }
+
   private func resolveVehicleStatusURL() async throws -> URL {
     if let vehicleStatusURL {
       return vehicleStatusURL

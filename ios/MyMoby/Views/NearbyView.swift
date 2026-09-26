@@ -7,6 +7,7 @@ struct NearbyView: View {
   let controller: CommuteController
   let location: LocationProvider
   let settings: Settings
+  let parking: ParkingStore
   @Environment(\.scenePhase) private var scenePhase
   @State private var origin: Origin = .here
   @State private var isShowingSettings = false
@@ -27,6 +28,7 @@ struct NearbyView: View {
           bikes: Array(store.bikes.prefix(mapLimit)),
           nearestIDs: Set(store.nearest.map(\.id)),
           targetID: store.target?.bike.id,
+          bays: bays,
           route: route,
           camera: $camera,
           selectedID: $selectedID
@@ -37,7 +39,8 @@ struct NearbyView: View {
           TargetBanner(target: target, origin: location.coordinate, controller: controller)
         }
         BikeList(
-          store: store, location: location, origin: originCoordinate, selectedID: $selectedID
+          store: store, location: location, origin: originCoordinate, nearestBay: bays.first,
+          selectedID: $selectedID
         )
         .frame(maxHeight: .infinity)
       }
@@ -74,6 +77,7 @@ struct NearbyView: View {
       }
     }
     .onAppear { location.start() }
+    .task { await parking.load() }
     .task(id: selectedID) {
       route = nil
       if let bike = selectedBike.wrappedValue, let origin = originCoordinate {
@@ -98,6 +102,11 @@ struct NearbyView: View {
         camera = .userLocation(fallback: .automatic)
       }
     }
+  }
+
+  /// The parking bays nearest to the origin.
+  private var bays: [ParkingBay] {
+    parking.nearest(to: originCoordinate, count: 8)
   }
 
   private var originCoordinate: Coordinate? {
@@ -196,6 +205,7 @@ struct BikeMap: View {
   let bikes: [Bike]
   let nearestIDs: Set<String>
   let targetID: String?
+  let bays: [ParkingBay]
   let route: MKRoute?
   @Binding var camera: MapCameraPosition
   @Binding var selectedID: String?
@@ -203,6 +213,11 @@ struct BikeMap: View {
   var body: some View {
     Map(position: $camera, selection: $selectedID) {
       UserAnnotation()
+      ForEach(Array(bays.enumerated()), id: \.offset) { _, bay in
+        MapPolygon(coordinates: bay.outline.map(\.clLocation))
+          .foregroundStyle(.blue.opacity(0.25))
+          .stroke(.blue, lineWidth: 1)
+      }
       if let route {
         MapPolyline(route)
           .stroke(.blue, style: StrokeStyle(lineWidth: 5, lineCap: .round, dash: [1, 8]))
@@ -225,10 +240,22 @@ struct BikeList: View {
   let store: BikeStore
   let location: LocationProvider
   let origin: Coordinate?
+  let nearestBay: ParkingBay?
   @Binding var selectedID: String?
 
   var body: some View {
     List {
+      if let nearestBay {
+        Label {
+          Text(
+            "Nearest parking bay: \(Measurement(value: nearestBay.distanceM, unit: UnitLength.meters), format: .measurement(width: .abbreviated, usage: .road))"
+          )
+        } icon: {
+          Image(systemName: "parkingsign.circle")
+            .foregroundStyle(.blue)
+        }
+        .font(.subheadline)
+      }
       if location.isDenied {
         Text("Location access is off. Turn it on in Settings to find nearby bikes.")
       } else if origin == nil {
