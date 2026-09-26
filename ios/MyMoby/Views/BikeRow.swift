@@ -33,11 +33,13 @@ struct RangeLabel: View {
   let rangeM: Double
 
   var body: some View {
-    Label(
-      Units.kilometres(rangeM),
-      systemImage: "battery.75percent"
-    )
+    HStack(spacing: 6) {
+      RangeGauge(rangeM: rangeM)
+      Text(Units.kilometres(rangeM))
+        .monospacedDigit()
+    }
     .foregroundStyle(.secondary)
+    .accessibilityElement(children: .ignore)
     .accessibilityLabel("Range \(Int(rangeM / 1000)) kilometres")
   }
 }

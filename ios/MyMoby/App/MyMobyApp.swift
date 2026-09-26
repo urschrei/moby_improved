@@ -33,6 +33,7 @@ struct MyMobyApp: App {
   var body: some Scene {
     WindowGroup {
       NearbyView(controller: controller, location: location, settings: settings, parking: parking)
+        .tint(Theme.accent)
     }
   }
 }
