@@ -40,6 +40,11 @@ final class CommuteController {
   /// The time for which the Live Activity shows a message.
   private let messageLifetime: TimeInterval = 180
 
+  /// The last message, if it is younger than its lifetime.
+  private var currentMessage: String? {
+    lastMessage.flatMap { $0.date.timeIntervalSinceNow > -messageLifetime ? $0.text : nil }
+  }
+
   /// The refresh interval while the rider walks to a bike.
   private let headingInterval: Duration = .seconds(20)
 
@@ -163,7 +168,11 @@ final class CommuteController {
             activityState(origin: origin, event: event), alert: Self.message(for: event) != nil)
         }
       }
-      if watch.isRunning, store.target == nil, !isWatchingManually, !settings.isCommuting() {
+      // Keep a message on the Live Activity for its lifetime, for example
+      // when the bike was taken and no other bike is near.
+      if watch.isRunning, store.target == nil, !isWatchingManually, !settings.isCommuting(),
+        currentMessage == nil
+      {
         await watch.stop()
       } else if !watch.isRunning, shouldStartForWindow(),
         UIApplication.shared.applicationState == .active
@@ -229,9 +238,7 @@ final class CommuteController {
     if let text = Self.message(for: event) {
       lastMessage = (text, .now)
     }
-    let message = lastMessage.flatMap {
-      $0.date.timeIntervalSinceNow > -messageLifetime ? $0.text : nil
-    }
+    let message = currentMessage
     if let target = store.target {
       return BikeActivityAttributes.ContentState(
         mode: .heading,
