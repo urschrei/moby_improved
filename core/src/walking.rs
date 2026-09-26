@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::iter::Fuse;
 use std::num::NonZeroUsize;
 
 use crate::Candidate;
@@ -22,8 +23,7 @@ pub struct WalkingSearch<S> {
     origin: Position,
     k: NonZeroUsize,
     max_requests: usize,
-    source: S,
-    is_exhausted: bool,
+    source: Fuse<S>,
     cached: CachedRoutes,
     candidates: Vec<Candidate>,
     slots: Vec<Slot>,
@@ -94,8 +94,7 @@ where
             origin,
             k,
             max_requests,
-            source,
-            is_exhausted: false,
+            source: source.fuse(),
             cached: cache.routes_from(origin),
             candidates: Vec::new(),
             slots: Vec::new(),
@@ -218,13 +217,7 @@ where
 
     /// Takes the next candidate from the source, and returns a copy of it.
     fn take_candidate(&mut self) -> Option<Candidate> {
-        if self.is_exhausted {
-            return None;
-        }
-        let Some(candidate) = self.source.next() else {
-            self.is_exhausted = true;
-            return None;
-        };
+        let candidate = self.source.next()?;
         // The cache reuses a route anywhere in a grid cell, so a cached route
         // can be shorter than the straight line from this origin. The stop
         // rule needs every walk to be at least the straight line.
