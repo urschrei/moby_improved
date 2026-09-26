@@ -20,10 +20,13 @@ targets:
       Release: Signing.xcconfig
     sources:
       - path: MyMoby
-      - path: ../core/tests/fixtures/vehicle_status.json
+      - path: Shared
+      - path: ../core/tests/fixtures/probe
+        type: folder
         buildPhase: resources
     dependencies:
       - package: MobyKit
+      - target: MyMobyWidgets
     info:
       path: MyMoby/Info.plist
       properties:
@@ -31,8 +34,30 @@ targets:
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         NSLocationWhenInUseUsageDescription: MyMoby uses your location to find the nearest bikes.
+        UIBackgroundModes: [location]
+        NSSupportsLiveActivities: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(MOBY_BUNDLE_ID)
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: NO
+  MyMobyWidgets:
+    type: app-extension
+    platform: iOS
+    configFiles:
+      Debug: Signing.xcconfig
+      Release: Signing.xcconfig
+    sources:
+      - path: MyMobyWidgets
+      - path: Shared
+    info:
+      path: MyMobyWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: MyMoby
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(MOBY_BUNDLE_ID).widgets
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: NO

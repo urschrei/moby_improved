@@ -58,3 +58,10 @@ extension CommuteWindow: Codable, Identifiable {
     try container.encode(endMinute, forKey: .endMinute)
   }
 }
+
+extension WalkedBike {
+  /// The walking time, rounded up to whole minutes, and at least one minute.
+  public var walkDuration: Duration {
+    .seconds(max(1, (walkingS / 60).rounded(.up)) * 60)
+  }
+}

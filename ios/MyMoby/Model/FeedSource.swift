@@ -6,12 +6,22 @@ protocol FeedSource: Sendable {
   func vehicleStatus() async throws -> Feed
 }
 
-/// Gives the feed captured in the Rust test fixtures.
-struct FixtureSource: FeedSource {
-  func vehicleStatus() async throws -> Feed {
-    guard let url = Bundle.main.url(forResource: "vehicle_status", withExtension: "json") else {
-      throw CocoaError(.fileNoSuchFile)
+#if DEBUG
+  /// Replays two feed responses captured three minutes apart, to test the
+  /// response to a bike that another rider rents. Enable it with the
+  /// `-replay` launch argument.
+  actor ReplaySource: FeedSource {
+    private var requests = 0
+
+    func vehicleStatus() async throws -> Feed {
+      let name = requests == 0 ? "vehicle_status_1118" : "vehicle_status_1121"
+      requests += 1
+      guard
+        let url = Bundle.main.url(forResource: name, withExtension: "json", subdirectory: "probe")
+      else {
+        throw CocoaError(.fileNoSuchFile)
+      }
+      return try Feed.parse(body: Data(contentsOf: url))
     }
-    return try Feed.parse(body: Data(contentsOf: url))
   }
-}
+#endif

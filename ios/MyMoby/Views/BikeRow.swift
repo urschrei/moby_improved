@@ -8,7 +8,7 @@ struct BikeRow: View {
     HStack {
       VStack(alignment: .leading) {
         Text(
-          Duration.seconds(walked.walkingS),
+          walked.walkDuration,
           format: .units(allowed: [.minutes], width: .abbreviated)
         )
         .font(.headline)

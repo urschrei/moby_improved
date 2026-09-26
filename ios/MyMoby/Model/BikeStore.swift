@@ -2,6 +2,24 @@ import Foundation
 import MobyKit
 import Observation
 
+/// The bike the rider is walking to.
+struct Target: Equatable {
+  var bike: Bike
+  /// The position of the bike when the rider chose it.
+  var chosenAt: Coordinate
+  var chosenOn: Date
+}
+
+/// A change to the target after a refresh.
+enum TargetEvent {
+  /// The target was rented; the rider now walks to `next`.
+  case replaced(next: WalkedBike)
+  /// The target was rented, and no other bike is near.
+  case lost
+  /// The target moved to a new position.
+  case moved(Coordinate)
+}
+
 /// The bikes near the current origin, and the state of the last refresh.
 @MainActor
 @Observable
@@ -13,11 +31,14 @@ final class BikeStore {
   private(set) var feed: Feed?
   private(set) var lastError: String?
   private(set) var isRefreshing = false
+  private(set) var target: Target?
 
   /// The number of bikes to rank by walking distance.
   let rankedCount: UInt32 = 5
   /// The maximum number of routing requests per refresh.
   let maxRoutingRequests: UInt32 = 12
+  /// The time after which a target that the rider has not reached is dropped.
+  let targetLifetime: TimeInterval = 30 * 60
 
   private let source: any FeedSource
   private let settings: Settings
@@ -28,18 +49,18 @@ final class BikeStore {
     self.settings = settings
   }
 
-  /// Refreshes until the task is cancelled, at the interval that the
-  /// settings give for the time of day.
-  func run(origin: @escaping @MainActor () -> Coordinate?) async {
-    while !Task.isCancelled {
-      if let origin = origin() {
-        await refresh(from: origin)
-      }
-      try? await Task.sleep(for: settings.refreshInterval())
-    }
+  func setTarget(_ bike: Bike) {
+    target = Target(bike: bike, chosenAt: bike.coordinate, chosenOn: .now)
   }
 
-  func refresh(from origin: Coordinate) async {
+  func clearTarget() {
+    target = nil
+  }
+
+  /// Fetches the feed. With a target, checks the target and ranks bikes only
+  /// if the target is gone. Without a target, ranks the bikes near `origin`.
+  @discardableResult
+  func refresh(from origin: Coordinate) async -> TargetEvent? {
     isRefreshing = true
     defer { isRefreshing = false }
     do {
@@ -47,9 +68,40 @@ final class BikeStore {
       self.feed = feed
       bikes = feed.bikes(origin: origin, minRangeM: settings.values.minRangeKm * 1000)
       lastError = nil
+      Log.refresh.info("feed has \(self.bikes.count) bikes with enough range")
     } catch {
+      Log.refresh.error("refresh failed: \(error.localizedDescription)")
       lastError = error.localizedDescription
+      return nil
     }
+
+    if let target, target.chosenOn.timeIntervalSinceNow < -targetLifetime {
+      self.target = nil
+    }
+    guard let target, let feed else {
+      await rank(from: origin)
+      return nil
+    }
+    switch feed.targetStatus(vehicleId: target.bike.vehicleId, chosenAt: target.chosenAt) {
+    case .available:
+      return nil
+    case .moved(let coordinate):
+      self.target?.bike.coordinate = coordinate
+      self.target?.chosenAt = coordinate
+      return .moved(coordinate)
+    case .gone:
+      await rank(from: origin)
+      if let next = nearest.first {
+        self.target = Target(bike: next.bike, chosenAt: next.bike.coordinate, chosenOn: .now)
+        return .replaced(next: next)
+      } else {
+        self.target = nil
+        return .lost
+      }
+    }
+  }
+
+  private func rank(from origin: Coordinate) async {
     nearest = await router.rank(
       origin: origin, bikes: bikes, k: rankedCount, maxRequests: maxRoutingRequests)
   }

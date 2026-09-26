@@ -4,7 +4,7 @@ import SwiftUI
 
 /// The map of nearby bikes above the list of the nearest bikes on foot.
 struct NearbyView: View {
-  let store: BikeStore
+  let controller: CommuteController
   let location: LocationProvider
   let settings: Settings
   @Environment(\.scenePhase) private var scenePhase
@@ -17,6 +17,8 @@ struct NearbyView: View {
   /// The number of bikes to show on the map.
   private let mapLimit = 60
 
+  private var store: BikeStore { controller.store }
+
   var body: some View {
     NavigationStack {
       VStack(spacing: 0) {
@@ -24,12 +26,16 @@ struct NearbyView: View {
         BikeMap(
           bikes: Array(store.bikes.prefix(mapLimit)),
           nearestIDs: Set(store.nearest.map(\.id)),
+          targetID: store.target?.bike.id,
           route: route,
           camera: $camera,
           selectedID: $selectedID
         )
         .frame(maxHeight: .infinity)
         FeedStatus(feed: store.feed, bikeCount: store.bikes.count, isRefreshing: store.isRefreshing)
+        if let target = store.target {
+          TargetBanner(target: target, origin: location.coordinate, controller: controller)
+        }
         BikeList(
           store: store, location: location, origin: originCoordinate, selectedID: $selectedID
         )
@@ -38,6 +44,18 @@ struct NearbyView: View {
       .navigationTitle("Nearby bikes")
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
+        ToolbarItem(placement: .topBarLeading) {
+          if controller.watch.isRunning {
+            Button("Stop watching", systemImage: "eye.slash") {
+              Task { await controller.stopWatching() }
+            }
+          } else {
+            Button("Watch in the background", systemImage: "eye") {
+              controller.watch.start(
+                state: .init(mode: .watching, bikeCount: store.bikes.count, updated: .now))
+            }
+          }
+        }
         ToolbarItem(placement: .topBarTrailing) {
           Button("Settings", systemImage: "gearshape") { isShowingSettings = true }
         }
@@ -49,13 +67,13 @@ struct NearbyView: View {
         BikeDetail(
           bike: bike,
           walked: store.nearest.first { $0.id == bike.id },
-          origin: originCoordinate
+          controller: controller
         )
         .presentationDetents([.height(260)])
         .presentationBackgroundInteraction(.enabled)
       }
     }
-    .task { await location.run() }
+    .onAppear { location.start() }
     .task(id: selectedID) {
       route = nil
       if let bike = selectedBike.wrappedValue, let origin = originCoordinate {
@@ -64,7 +82,12 @@ struct NearbyView: View {
     }
     .task(id: runKey) {
       guard runKey.isActive, runKey.hasOrigin else { return }
-      await store.run { originCoordinate }
+      await controller.run { originCoordinate }
+    }
+    .onChange(of: scenePhase, initial: true) {
+      if scenePhase == .active {
+        controller.appDidBecomeActive()
+      }
     }
     .onChange(of: origin) {
       if let coordinate = originCoordinate, origin != .here {
@@ -91,7 +114,8 @@ struct NearbyView: View {
 
   private var runKey: RunKey {
     RunKey(
-      isActive: scenePhase == .active,
+      // The loop continues in the background while the app watches.
+      isActive: scenePhase == .active || controller.watch.isRunning,
       hasOrigin: originCoordinate != nil,
       origin: origin,
       settings: settings.values)
@@ -102,6 +126,42 @@ struct NearbyView: View {
       get: { store.bikes.first { $0.id == selectedID } },
       set: { selectedID = $0?.id }
     )
+  }
+}
+
+/// The bike the rider is walking to.
+struct TargetBanner: View {
+  let target: Target
+  let origin: Coordinate?
+  let controller: CommuteController
+  @Environment(\.openURL) private var openURL
+
+  var body: some View {
+    HStack {
+      Image(systemName: "figure.walk")
+      if let origin {
+        Text("\(Int(distanceM(a: origin, b: target.bike.coordinate))) m to your bike")
+      } else {
+        Text("Walking to your bike")
+      }
+      Spacer()
+      if let url = Handoff.rentalURL(for: target.bike) {
+        Button("Unlock") {
+          controller.arrived()
+          openURL(url)
+        }
+        .buttonStyle(.borderedProminent)
+      }
+      Button("Cancel", systemImage: "xmark") {
+        controller.arrived()
+      }
+      .labelStyle(.iconOnly)
+      .buttonStyle(.bordered)
+    }
+    .font(.subheadline)
+    .padding(.horizontal)
+    .padding(.vertical, 8)
+    .background(.green.opacity(0.15))
   }
 }
 
@@ -135,6 +195,7 @@ struct OriginPicker: View {
 struct BikeMap: View {
   let bikes: [Bike]
   let nearestIDs: Set<String>
+  let targetID: String?
   let route: MKRoute?
   @Binding var camera: MapCameraPosition
   @Binding var selectedID: String?
@@ -148,7 +209,7 @@ struct BikeMap: View {
       }
       ForEach(bikes) { bike in
         Marker("Bike", systemImage: "bicycle", coordinate: bike.coordinate.clLocation)
-          .tint(nearestIDs.contains(bike.id) ? .green : .gray)
+          .tint(bike.id == targetID ? .blue : nearestIDs.contains(bike.id) ? .green : .gray)
           .tag(bike.id)
       }
       .annotationTitles(.hidden)

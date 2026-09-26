@@ -6,14 +6,14 @@ import SwiftUI
 struct BikeDetail: View {
   let bike: Bike
   let walked: WalkedBike?
-  let origin: Coordinate?
+  let controller: CommuteController
   @Environment(\.openURL) private var openURL
 
   var body: some View {
     VStack(alignment: .leading, spacing: 16) {
       HStack {
         if let walked {
-          Text(Duration.seconds(walked.walkingS), format: .units(allowed: [.minutes], width: .wide))
+          Text(walked.walkDuration, format: .units(allowed: [.minutes], width: .wide))
             .font(.title2.bold())
             + Text(" walk")
             .font(.title2)
@@ -28,7 +28,7 @@ struct BikeDetail: View {
         RangeLabel(rangeM: bike.rangeM)
       }
       Button {
-        Handoff.walk(to: bike)
+        controller.walk(to: bike)
       } label: {
         Label("Walk there", systemImage: "figure.walk")
           .frame(maxWidth: .infinity)
@@ -37,6 +37,7 @@ struct BikeDetail: View {
       .controlSize(.large)
       if let url = Handoff.rentalURL(for: bike) {
         Button {
+          controller.arrived()
           openURL(url)
         } label: {
           Label("Open in MOBY", systemImage: "lock.open")

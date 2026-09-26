@@ -1,0 +1,138 @@
+import Foundation
+import MobyKit
+import Observation
+import UIKit
+
+/// Runs the refresh loop, and keeps the app watching in the background during
+/// a commute or while the rider walks to a bike.
+@MainActor
+@Observable
+final class CommuteController {
+  let store: BikeStore
+  let watch: WatchSession
+  private let settings: Settings
+
+  /// The wait before the next refresh. Cancelling it starts the next
+  /// refresh at once.
+  @ObservationIgnored private var sleeper: Task<Void, Never>?
+
+  /// The last message about the target, and when it was made.
+  private var lastMessage: (text: String, date: Date)?
+  /// The time for which the Live Activity shows a message.
+  private let messageLifetime: TimeInterval = 180
+
+  /// The refresh interval while the rider walks to a bike.
+  private let headingInterval: Duration = .seconds(20)
+
+  init(store: BikeStore, settings: Settings, location: LocationProvider) {
+    self.store = store
+    self.settings = settings
+    watch = WatchSession(location: location)
+  }
+
+  /// Starts watching if a commute window is open. Call this when the app
+  /// comes to the foreground.
+  func appDidBecomeActive() {
+    if settings.isCommuting() {
+      watch.start(state: activityState(origin: nil))
+    }
+  }
+
+  /// Chooses a bike, starts watching it, and opens Maps.
+  func walk(to bike: Bike) {
+    store.setTarget(bike)
+    watch.start(state: activityState(origin: nil))
+    Task { await Notifier.shared.requestAuthorization() }
+    sleeper?.cancel()
+    Handoff.walk(to: bike)
+  }
+
+  /// Stops watching the target, for example because the rider has reached it.
+  func arrived() {
+    store.clearTarget()
+  }
+
+  func stopWatching() async {
+    store.clearTarget()
+    await watch.stop()
+  }
+
+  /// Refreshes until the task is cancelled.
+  func run(origin: @escaping @MainActor () -> Coordinate?) async {
+    Log.refresh.info("refresh loop started")
+    defer { Log.refresh.info("refresh loop ended") }
+    while !Task.isCancelled {
+      if let origin = origin() {
+        let event = await store.refresh(from: origin)
+        if let event {
+          announce(event)
+        }
+        if watch.isRunning {
+          await watch.update(activityState(origin: origin, event: event), alert: event != nil)
+        }
+      }
+      if watch.isRunning, store.target == nil, !settings.isCommuting() {
+        await watch.stop()
+      }
+      let interval = store.target == nil ? settings.refreshInterval() : headingInterval
+      Log.refresh.info("next refresh in \(interval), watching: \(self.watch.isRunning)")
+      let sleeper = Task { _ = try? await Task.sleep(for: interval) }
+      self.sleeper = sleeper
+      await withTaskCancellationHandler {
+        await sleeper.value
+      } onCancel: {
+        sleeper.cancel()
+      }
+    }
+  }
+
+  private static func message(for event: TargetEvent?) -> String? {
+    switch event {
+    case .replaced: "Your bike was taken. Walking to the next one."
+    case .lost: "Your bike was taken. No other bike is near."
+    case .moved: "Your bike moved."
+    case nil: nil
+    }
+  }
+
+  private func announce(_ event: TargetEvent) {
+    UINotificationFeedbackGenerator().notificationOccurred(.warning)
+    switch event {
+    case .replaced(let next): Notifier.shared.bikeReplaced(by: next)
+    case .lost: Notifier.shared.bikeLost()
+    case .moved(let coordinate): Notifier.shared.bikeMoved(to: coordinate)
+    }
+  }
+
+  private func activityState(origin: Coordinate?, event: TargetEvent? = nil)
+    -> BikeActivityAttributes.ContentState
+  {
+    let updated =
+      store.feed.map { Date(timeIntervalSince1970: Double($0.lastUpdatedMs()) / 1000) } ?? .now
+    if let text = Self.message(for: event) {
+      lastMessage = (text, .now)
+    }
+    let message = lastMessage.flatMap {
+      $0.date.timeIntervalSinceNow > -messageLifetime ? $0.text : nil
+    }
+    if let target = store.target {
+      return BikeActivityAttributes.ContentState(
+        mode: .heading,
+        walkMinutes: nil,
+        distanceM: origin.map { Int(distanceM(a: $0, b: target.bike.coordinate)) },
+        rangeKm: Int(target.bike.rangeM / 1000),
+        bikeCount: store.bikes.count,
+        message: message,
+        updated: updated)
+    }
+    let nearest = store.nearest.first
+    return BikeActivityAttributes.ContentState(
+      mode: .watching,
+      walkMinutes: nearest.map { Int(($0.walkingS / 60).rounded(.up)) },
+      distanceM: nearest.map { Int($0.walkingM) },
+      rangeKm: nearest.map { Int($0.bike.rangeM / 1000) },
+      bikeCount: store.bikes.count,
+      message: message,
+      updated: updated)
+  }
+}

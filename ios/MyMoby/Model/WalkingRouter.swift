@@ -29,6 +29,9 @@ final class WalkingRouter {
       }
     }
     let results = walker.results()
+    Log.routing.info(
+      "ranked \(results.count) of \(bikes.count) bikes, \(results.filter(\.isEstimate).count) estimated"
+    )
     walker.finish()
     return results
   }
@@ -44,7 +47,11 @@ final class WalkingRouter {
     request.source = MKMapItem(placemark: MKPlacemark(coordinate: origin.clLocation))
     request.destination = MKMapItem(placemark: MKPlacemark(coordinate: bike.coordinate.clLocation))
     request.transportType = .walking
-    guard let eta = try? await MKDirections(request: request).calculateETA() else {
+    let eta: MKDirections.ETAResponse
+    do {
+      eta = try await MKDirections(request: request).calculateETA()
+    } catch {
+      Log.routing.error("ETA to \(bike.vehicleId) failed: \(error.localizedDescription)")
       return nil
     }
     return Walk(metres: eta.distance, seconds: eta.expectedTravelTime)

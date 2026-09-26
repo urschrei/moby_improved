@@ -6,7 +6,13 @@ enum Handoff {
   /// Opens Apple Maps with walking directions to the bike.
   @MainActor
   static func walk(to bike: Bike) {
-    let item = MKMapItem(placemark: MKPlacemark(coordinate: bike.coordinate.clLocation))
+    walk(to: bike.coordinate)
+  }
+
+  /// Opens Apple Maps with walking directions to a position.
+  @MainActor
+  static func walk(to coordinate: Coordinate) {
+    let item = MKMapItem(placemark: MKPlacemark(coordinate: coordinate.clLocation))
     item.name = "MOBY bike"
     item.openInMaps(launchOptions: [
       MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeWalking

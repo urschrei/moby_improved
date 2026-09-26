@@ -10,3 +10,4 @@ DerivedData/
 /ios/Local.xcconfig
 /ios/MyMoby.xcodeproj
 /ios/MyMoby/Info.plist
+/ios/MyMobyWidgets/Info.plist
