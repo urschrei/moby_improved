@@ -172,7 +172,8 @@ impl Cursor {
 
     fn next(&mut self, index: &VehicleIndex) -> Option<Candidate> {
         while let Some(pending) = self.queue.pop() {
-            match node_at(index.root(), &pending.path)? {
+            let node = node_at(index.root(), &pending.path).expect("the paths come from this tree");
+            match node {
                 RTreeNode::Leaf(leaf) => {
                     let vehicle = &index.vehicles[leaf.data];
                     if vehicle.range_m >= self.filter.min_range_m {
