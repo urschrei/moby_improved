@@ -7,7 +7,7 @@ struct MyMobyApp: App {
 
   var body: some Scene {
     WindowGroup {
-      BikeListView(store: store, location: location)
+      NearbyView(store: store, location: location)
     }
   }
 }

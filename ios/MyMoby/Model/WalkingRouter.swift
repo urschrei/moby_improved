@@ -50,9 +50,3 @@ final class WalkingRouter {
     return Walk(metres: eta.distance, seconds: eta.expectedTravelTime)
   }
 }
-
-extension Coordinate {
-  var clLocation: CLLocationCoordinate2D {
-    CLLocationCoordinate2D(latitude: lat, longitude: lon)
-  }
-}
