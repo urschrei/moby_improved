@@ -203,3 +203,26 @@ fn nearest_matches_the_scan_on_the_live_feed() {
     }
     assert_eq!(sorted_by_id(found), sorted_by_id(scanned));
 }
+
+#[hegel::test]
+fn an_invalid_origin_finds_no_vehicles(tc: TestCase) {
+    let vehicles = draw_vehicles(&tc);
+    let invalid = tc.draw(gs::sampled_from(vec![
+        f64::NAN,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        200.0,
+        -200.0,
+    ]));
+    let origin = if tc.draw(gs::booleans()) {
+        Position::new(invalid, SPIRE.lon)
+    } else {
+        Position::new(SPIRE.lat, invalid)
+    };
+
+    let found: Vec<Candidate> = VehicleIndex::new(&vehicles)
+        .nearest(origin, draw_filter(&tc))
+        .collect();
+
+    assert_eq!(found, Vec::new());
+}

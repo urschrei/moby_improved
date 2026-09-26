@@ -31,7 +31,8 @@ pub struct VehicleIndex {
 #[derive(Debug)]
 pub struct Nearest<'a> {
     index: &'a VehicleIndex,
-    cursor: Cursor,
+    /// The traversal, or `None` if the origin is not a valid position.
+    cursor: Option<Cursor>,
 }
 
 /// The candidates in a shared index, nearest to an origin first. It owns a
@@ -39,7 +40,8 @@ pub struct Nearest<'a> {
 #[derive(Debug)]
 pub struct SharedNearest {
     index: Arc<VehicleIndex>,
-    cursor: Cursor,
+    /// The traversal, or `None` if the origin is not a valid position.
+    cursor: Option<Cursor>,
 }
 
 impl VehicleIndex {
@@ -76,6 +78,7 @@ impl VehicleIndex {
     }
 
     /// Returns the vehicles that satisfy `filter`, nearest to `origin` first.
+    /// If `origin` is not a valid position, the iterator is empty.
     #[must_use]
     pub fn nearest(&self, origin: Position, filter: Filter) -> Nearest<'_> {
         Nearest {
@@ -85,7 +88,8 @@ impl VehicleIndex {
     }
 
     /// Returns the vehicles that satisfy `filter`, nearest to `origin` first.
-    /// The iterator keeps a reference to the index.
+    /// The iterator keeps a reference to the index. If `origin` is not a valid
+    /// position, the iterator is empty.
     #[must_use]
     pub fn shared_nearest(self: &Arc<Self>, origin: Position, filter: Filter) -> SharedNearest {
         SharedNearest {
@@ -115,7 +119,7 @@ impl Iterator for Nearest<'_> {
     type Item = Candidate;
 
     fn next(&mut self) -> Option<Candidate> {
-        self.cursor.next(self.index)
+        self.cursor.as_mut()?.next(self.index)
     }
 }
 
@@ -123,7 +127,7 @@ impl Iterator for SharedNearest {
     type Item = Candidate;
 
     fn next(&mut self) -> Option<Candidate> {
-        self.cursor.next(&self.index)
+        self.cursor.as_mut()?.next(&self.index)
     }
 }
 
@@ -152,15 +156,18 @@ struct Cursor {
 }
 
 impl Cursor {
-    fn new(index: &VehicleIndex, origin: Position, filter: Filter) -> Self {
+    /// Starts a traversal from `origin`. Returns `None` if `origin` is not a
+    /// valid position, for example because a coordinate is not finite.
+    fn new(index: &VehicleIndex, origin: Position, filter: Filter) -> Option<Self> {
+        let point = GeodeticPoint::try_new(origin.lon, origin.lat).ok()?;
         let mut cursor = Self {
-            query: GeodeticPoint::new(origin.lon, origin.lat).unit_vec(),
+            query: point.unit_vec(),
             origin,
             filter,
             queue: BinaryHeap::new(),
         };
         cursor.push_children(index.root(), &[]);
-        cursor
+        Some(cursor)
     }
 
     fn next(&mut self, index: &VehicleIndex) -> Option<Candidate> {
