@@ -38,8 +38,8 @@ project:
 # Build the app for the iOS 18 simulator.
 app: ffi project
     xcodebuild -project ios/MyMoby.xcodeproj -scheme MyMoby \
-        -destination 'platform=iOS Simulator,OS=18.6,name=iPhone 16' \
-        -derivedDataPath ios/build build
+        -destination 'generic/platform=iOS Simulator' \
+        -derivedDataPath ios/build ARCHS=arm64 build
 
 # Format the Swift sources.
 swift-fmt:
