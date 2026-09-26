@@ -89,6 +89,22 @@ final class CommuteController {
     Task { await Handoff.openInMoby(bike) }
   }
 
+  /// The distance that the origin must move before the bikes are ranked
+  /// again before the next scheduled refresh.
+  private let rerankDistanceM = 50.0
+
+  /// Starts the next refresh at once if `origin` is far from the origin of
+  /// the last ranking. The store ranks only when there is no target.
+  func originMoved(to origin: Coordinate) {
+    guard store.target == nil, !store.isRefreshing, let rankedFrom = store.rankedFrom,
+      distanceM(a: rankedFrom, b: origin) > rerankDistanceM
+    else {
+      return
+    }
+    Log.refresh.info("origin moved; refreshing now")
+    sleeper?.cancel()
+  }
+
   /// Stops watching the target, for example because the rider has reached it.
   func arrived() {
     store.clearTarget()

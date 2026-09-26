@@ -71,8 +71,14 @@ struct NearbyView: View {
         controller.appDidBecomeActive()
       }
     }
+    .onChange(of: originCoordinate) {
+      if let originCoordinate {
+        controller.originMoved(to: originCoordinate)
+      }
+    }
     .onChange(of: origin) {
       selectedID = nil
+      store.clearBikes()
       if let coordinate = originCoordinate, origin != .here {
         camera = .region(
           MKCoordinateRegion(

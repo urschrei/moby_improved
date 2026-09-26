@@ -35,6 +35,8 @@ final class BikeStore {
   private(set) var lastError: String?
   private(set) var isRefreshing = false
   private(set) var target: Target?
+  /// The origin of the last ranking.
+  private(set) var rankedFrom: Coordinate?
 
   /// The number of bikes to rank by walking distance.
   let rankedCount: UInt32 = 5
@@ -59,6 +61,14 @@ final class BikeStore {
 
   func clearTarget() {
     target = nil
+  }
+
+  /// Removes the bikes of the previous origin, so that the rider does not see
+  /// them while the store ranks the bikes near a new origin.
+  func clearBikes() {
+    bikes = []
+    nearest = []
+    rankedFrom = nil
   }
 
   /// Fetches the feed. With a target, checks the target and ranks bikes only
@@ -109,6 +119,7 @@ final class BikeStore {
   }
 
   private func rank(from origin: Coordinate) async {
+    rankedFrom = origin
     nearest = await router.rank(
       origin: origin, bikes: bikes, k: rankedCount, maxRequests: maxRoutingRequests)
   }
