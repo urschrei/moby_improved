@@ -26,8 +26,9 @@ struct NearbyView: View {
         OriginPicker(origin: $origin, settings: settings, location: location.coordinate)
         BikeMap(
           bikes: Array(store.bikes.prefix(mapLimit)),
-          nearestIDs: Set(store.nearest.map(\.id)),
-          targetID: store.target?.bike.id,
+          ranked: store.nearest,
+          featuredID: store.nearest.first?.id,
+          target: store.target,
           bays: bays,
           route: route,
           camera: $camera,
@@ -204,41 +205,6 @@ struct OriginPicker: View {
     }
     .padding(.horizontal)
     .padding(.vertical, 8)
-  }
-}
-
-struct BikeMap: View {
-  let bikes: [Bike]
-  let nearestIDs: Set<String>
-  let targetID: String?
-  let bays: [ParkingBay]
-  let route: MKRoute?
-  @Binding var camera: MapCameraPosition
-  @Binding var selectedID: String?
-
-  var body: some View {
-    Map(position: $camera, selection: $selectedID) {
-      UserAnnotation()
-      ForEach(Array(bays.enumerated()), id: \.offset) { _, bay in
-        MapPolygon(coordinates: bay.outline.map(\.clLocation))
-          .foregroundStyle(.blue.opacity(0.25))
-          .stroke(.blue, lineWidth: 1)
-      }
-      if let route {
-        MapPolyline(route)
-          .stroke(.blue, style: StrokeStyle(lineWidth: 5, lineCap: .round, dash: [1, 8]))
-      }
-      ForEach(bikes) { bike in
-        Marker("Bike", systemImage: "bicycle", coordinate: bike.coordinate.clLocation)
-          .tint(bike.id == targetID ? .blue : nearestIDs.contains(bike.id) ? .green : .gray)
-          .tag(bike.id)
-      }
-      .annotationTitles(.hidden)
-    }
-    .mapControls {
-      MapUserLocationButton()
-      MapCompass()
-    }
   }
 }
 

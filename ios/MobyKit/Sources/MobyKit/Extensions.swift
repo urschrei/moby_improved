@@ -62,6 +62,11 @@ extension CommuteWindow: Codable, Identifiable {
 extension WalkedBike {
   /// The walking time, rounded up to whole minutes, and at least one minute.
   public var walkDuration: Duration {
-    .seconds(max(1, (walkingS / 60).rounded(.up)) * 60)
+    .seconds(walkMinutes * 60)
+  }
+
+  /// The walking time in whole minutes, rounded up, and at least 1.
+  public var walkMinutes: Int {
+    Int(max(1, (walkingS / 60).rounded(.up)))
   }
 }

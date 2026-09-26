@@ -178,7 +178,7 @@ final class CommuteController {
     let nearest = store.nearest.first
     return BikeActivityAttributes.ContentState(
       mode: .watching,
-      walkMinutes: nearest.map { Int(($0.walkingS / 60).rounded(.up)) },
+      walkMinutes: nearest?.walkMinutes,
       distanceM: nearest.map { Int($0.walkingM) },
       rangeKm: nearest.map { Int($0.bike.rangeM / 1000) },
       bikeCount: store.bikes.count,
