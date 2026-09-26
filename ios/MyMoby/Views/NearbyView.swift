@@ -189,7 +189,7 @@ struct WatchControl: View {
     if let end = controller.watchEnd {
       Menu {
         Section(Self.description(of: end)) {
-          Button("Stop Watching", systemImage: "stop.fill", role: .destructive) {
+          Button("Stop Watching", role: .destructive) {
             Task { await controller.stopWatching() }
           }
         }
