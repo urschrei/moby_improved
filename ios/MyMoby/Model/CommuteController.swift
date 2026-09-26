@@ -47,6 +47,18 @@ final class CommuteController {
     Handoff.walk(to: bike)
   }
 
+  /// Makes `bike` the target, marks it as reserved, and opens it in the
+  /// MOBY app so that the rider can reserve it there.
+  ///
+  /// The bike is marked before the rider reserves it: otherwise a refresh
+  /// while the rider is in the MOBY app would report it as rented.
+  func reserve(_ bike: Bike) {
+    store.setTarget(bike, isReserved: true)
+    watch.start(state: activityState(origin: nil))
+    sleeper?.cancel()
+    Task { await Handoff.openInMoby(bike) }
+  }
+
   /// Stops watching the target, for example because the rider has reached it.
   func arrived() {
     store.clearTarget()
@@ -64,6 +76,10 @@ final class CommuteController {
     while !Task.isCancelled {
       if let origin = origin() {
         let event = await store.refresh(from: origin)
+        if let target = store.target {
+          Log.refresh.info(
+            "target \(target.bike.vehicleId, privacy: .public), reserved: \(target.isReserved)")
+        }
         if let event {
           announce(event)
         }
@@ -96,6 +112,7 @@ final class CommuteController {
   }
 
   private func announce(_ event: TargetEvent) {
+    Log.refresh.info("target event: \(String(describing: event), privacy: .public)")
     UINotificationFeedbackGenerator().notificationOccurred(.warning)
     switch event {
     case .replaced(let next): Notifier.shared.bikeReplaced(by: next)
@@ -117,7 +134,7 @@ final class CommuteController {
     }
     if let target = store.target {
       return BikeActivityAttributes.ContentState(
-        mode: .heading,
+        mode: target.isReserved ? .reserved : .heading,
         walkMinutes: nil,
         distanceM: origin.map { Int(distanceM(a: $0, b: target.bike.coordinate)) },
         rangeKm: Int(target.bike.rangeM / 1000),

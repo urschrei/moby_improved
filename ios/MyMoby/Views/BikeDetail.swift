@@ -17,11 +17,8 @@ struct BikeDetail: View {
             + Text(" walk")
             .font(.title2)
         } else {
-          Text(
-            Measurement(value: bike.straightLineM, unit: UnitLength.meters),
-            format: .measurement(width: .abbreviated, usage: .road)
-          )
-          .font(.title2.bold())
+          Text(Units.metres(bike.straightLineM))
+            .font(.title2.bold())
         }
         Spacer()
         RangeLabel(rangeM: bike.rangeM)
@@ -35,6 +32,14 @@ struct BikeDetail: View {
       .buttonStyle(.bordered)
       .controlSize(.large)
       if Handoff.rentalURL(for: bike) != nil {
+        Button {
+          controller.reserve(bike)
+        } label: {
+          Label("Reserve in MOBY", systemImage: "clock.badge.checkmark")
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.large)
         Button {
           controller.arrived()
           Task { await Handoff.openInMoby(bike) }

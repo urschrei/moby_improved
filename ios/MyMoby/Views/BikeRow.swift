@@ -12,12 +12,9 @@ struct BikeRow: View {
           format: .units(allowed: [.minutes], width: .abbreviated)
         )
         .font(.headline)
-        Text(
-          Measurement(value: walked.walkingM, unit: UnitLength.meters),
-          format: .measurement(width: .abbreviated, usage: .road)
-        )
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
+        Text(Units.metres(walked.walkingM))
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
       }
       if walked.isEstimate {
         Image(systemName: "questionmark.circle")
@@ -37,10 +34,7 @@ struct RangeLabel: View {
 
   var body: some View {
     Label(
-      Measurement(value: rangeM / 1000, unit: UnitLength.kilometers)
-        .formatted(
-          .measurement(
-            width: .abbreviated, numberFormatStyle: .number.precision(.fractionLength(0)))),
+      Units.kilometres(rangeM),
       systemImage: "battery.75percent"
     )
     .foregroundStyle(.secondary)

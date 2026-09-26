@@ -72,7 +72,7 @@ struct NearbyView: View {
           walked: store.nearest.first { $0.id == bike.id },
           controller: controller
         )
-        .presentationDetents([.height(260)])
+        .presentationDetents([.height(320)])
         .presentationBackgroundInteraction(.enabled)
       }
     }
@@ -146,14 +146,22 @@ struct TargetBanner: View {
 
   var body: some View {
     HStack {
-      Image(systemName: "figure.walk")
+      Image(systemName: target.isReserved ? "clock.badge.checkmark" : "figure.walk")
       if let origin {
-        Text("\(Int(distanceM(a: origin, b: target.bike.coordinate))) m to your bike")
+        Text(
+          "\(Int(distanceM(a: origin, b: target.bike.coordinate))) m to your \(target.isReserved ? "reserved " : "")bike"
+        )
       } else {
-        Text("Walking to your bike")
+        Text(target.isReserved ? "Your bike is reserved" : "Walking to your bike")
       }
       Spacer()
       if Handoff.rentalURL(for: target.bike) != nil {
+        if !target.isReserved {
+          Button("Reserve") {
+            controller.reserve(target.bike)
+          }
+          .buttonStyle(.bordered)
+        }
         Button("Unlock") {
           controller.arrived()
           Task { await Handoff.openInMoby(target.bike) }
@@ -247,7 +255,7 @@ struct BikeList: View {
       if let nearestBay {
         Label {
           Text(
-            "Nearest parking bay: \(Measurement(value: nearestBay.distanceM, unit: UnitLength.meters), format: .measurement(width: .abbreviated, usage: .road))"
+            "Nearest parking bay: \(Units.metres(nearestBay.distanceM))"
           )
         } icon: {
           Image(systemName: "parkingsign.circle")

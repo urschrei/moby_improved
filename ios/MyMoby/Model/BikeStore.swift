@@ -8,6 +8,9 @@ struct Target: Equatable {
   /// The position of the bike when the rider chose it.
   var chosenAt: Coordinate
   var chosenOn: Date
+  /// `true` if the rider has reserved the bike in the MOBY app. The feed then
+  /// shows the bike as reserved, or not at all, so the store does not check it.
+  var isReserved = false
 }
 
 /// A change to the target after a refresh.
@@ -49,8 +52,9 @@ final class BikeStore {
     self.settings = settings
   }
 
-  func setTarget(_ bike: Bike) {
-    target = Target(bike: bike, chosenAt: bike.coordinate, chosenOn: .now)
+  func setTarget(_ bike: Bike, isReserved: Bool = false) {
+    target = Target(
+      bike: bike, chosenAt: bike.coordinate, chosenOn: .now, isReserved: isReserved)
   }
 
   func clearTarget() {
@@ -80,6 +84,9 @@ final class BikeStore {
     }
     guard let target, let feed else {
       await rank(from: origin)
+      return nil
+    }
+    if target.isReserved {
       return nil
     }
     switch feed.targetStatus(vehicleId: target.bike.vehicleId, chosenAt: target.chosenAt) {

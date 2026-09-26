@@ -78,6 +78,8 @@ extension BikeActivityAttributes.ContentState {
     switch mode {
     case .heading:
       if let distanceM { "\(distanceM) m to your bike" } else { "Walking to your bike" }
+    case .reserved:
+      if let distanceM { "\(distanceM) m to your reserved bike" } else { "Your bike is reserved" }
     case .watching:
       if let walkMinutes { "Nearest bike: \(walkMinutes) min walk" } else { "No bike nearby" }
     }
@@ -85,7 +87,7 @@ extension BikeActivityAttributes.ContentState {
 
   var shortHeadline: String {
     switch mode {
-    case .heading: distanceM.map { "\($0) m" } ?? "–"
+    case .heading, .reserved: distanceM.map { "\($0) m" } ?? "–"
     case .watching: walkMinutes.map { "\($0) min" } ?? "–"
     }
   }
