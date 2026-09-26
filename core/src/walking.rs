@@ -457,7 +457,7 @@ impl Cell {
     /// The length in metres of one degree of latitude.
     const METRES_PER_DEGREE: f64 = 111_320.0;
 
-    #[allow(clippy::cast_possible_truncation, reason = "cell indices are small")]
+    #[expect(clippy::cast_possible_truncation, reason = "cell indices are small")]
     fn of(position: Position, size_m: f64) -> Self {
         let lat_step = size_m / Self::METRES_PER_DEGREE;
         let row = (position.lat / lat_step).floor();
