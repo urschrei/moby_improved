@@ -9,6 +9,7 @@ pub mod gbfs;
 mod position;
 mod query;
 mod schedule;
+mod target;
 mod walking;
 
 pub use error::Error;
@@ -20,6 +21,9 @@ pub use query::candidates;
 pub use schedule::CommuteWindow;
 pub use schedule::Schedule;
 pub use schedule::Weekdays;
+pub use target::MOVE_THRESHOLD_M;
+pub use target::TargetStatus;
+pub use target::target_status;
 pub use walking::RankedVehicle;
 pub use walking::Route;
 pub use walking::WalkCache;
