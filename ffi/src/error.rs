@@ -8,6 +8,13 @@ pub enum MobyError {
     /// The manifest does not list a feed that the app needs.
     #[error("{0}")]
     MissingFeed(String),
+    /// A commute window does not start before it ends, or is not a time of
+    /// day.
+    #[error("invalid commute window: {0}")]
+    InvalidWindow(String),
+    /// A time or a time zone is not valid.
+    #[error("invalid time: {0}")]
+    InvalidTime(String),
 }
 
 impl From<moby_core::Error> for MobyError {

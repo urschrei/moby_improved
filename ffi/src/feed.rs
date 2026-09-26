@@ -31,6 +31,13 @@ pub fn vehicle_status_url(manifest: &[u8]) -> Result<String, MobyError> {
     Ok(manifest.data.require(FeedName::VehicleStatus)?.to_owned())
 }
 
+/// Returns the great-circle distance in metres between two positions.
+#[uniffi::export]
+#[must_use]
+pub fn distance_m(a: Coordinate, b: Coordinate) -> f64 {
+    moby_core::Position::from(a).distance_m(b.into())
+}
+
 #[uniffi::export]
 impl Feed {
     /// Parses a `vehicle_status` response body.

@@ -19,7 +19,7 @@ required-features = ["bindgen"]
 bindgen = ["uniffi/cli"]
 
 [dependencies]
-jiff = "0.2.37"
+jiff = { version = "0.2.37", features = ["tzdb-bundle-always"] }
 moby-core = { path = "../core" }
 thiserror = "2.0.21"
 uniffi = "0.32.2"
