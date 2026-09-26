@@ -96,11 +96,17 @@ struct CommuteWindowEditor: View {
       HStack(spacing: 6) {
         ForEach(0..<7, id: \.self) { bit in
           let isOn = window.weekdays & (1 << bit) != 0
-          Button(Self.dayLetters[bit]) {
+          Button {
             window.weekdays ^= 1 << bit
+          } label: {
+            Text(Self.dayLetters[bit])
+              .font(.subheadline.weight(.bold))
+              .foregroundStyle(isOn ? Theme.onAccent : .secondary)
+              .frame(width: 36, height: 36)
+              .background(
+                isOn ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(.quaternary), in: Circle())
           }
-          .buttonStyle(.bordered)
-          .tint(isOn ? .accentColor : .secondary)
+          .buttonStyle(.plain)
           .accessibilityLabel(Self.dayName(bit))
           .accessibilityAddTraits(isOn ? .isSelected : [])
         }
