@@ -222,3 +222,7 @@ The manifest is at `https://moby-move.rideatom.com/gbfs/v3_0/en/gbfs?id=2023`. I
 ## Data
 
 Bike data: [Moby Bikes API](https://data.smartdublin.ie/dataset/moby-bikes), Dublin City Council / Smart Dublin, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+## Licence
+
+[Blue Oak Model License 1.0.0](LICENSE.md). The bike data has its own licence: see [Data](#data).
