@@ -58,3 +58,17 @@ let spire = Coordinate(lat: 53.349805, lon: -6.26031)
   #expect(walker.nextRequest() == nil)
   #expect(walker.isComplete())
 }
+
+@Test func bikeNumberComesFromTheRentalLink() throws {
+  let feed = try Feed.parse(body: fixture("vehicle_status"))
+  let bikes = feed.bikes(origin: spire, minRangeM: 0)
+  #expect(bikes.allSatisfy { $0.number != nil })
+  let bike = Bike(
+    vehicleId: "1", coordinate: spire, rangeM: 0, straightLineM: 0,
+    rentalUri: "https://moby-move.app.link/2025070027")
+  #expect(bike.number == "2025070027")
+  let noNumber = Bike(
+    vehicleId: "2", coordinate: spire, rangeM: 0, straightLineM: 0,
+    rentalUri: "https://moby-move.app.link/")
+  #expect(noNumber.number == nil)
+}

@@ -70,3 +70,17 @@ extension WalkedBike {
     Int(max(1, (walkingS / 60).rounded(.up)))
   }
 }
+
+extension Bike {
+  /// The number of the bike: the last path component of its rental link,
+  /// for example "2025070027". It is `nil` if the link does not end in a
+  /// number.
+  public var number: String? {
+    guard let rentalUri, let last = URL(string: rentalUri)?.lastPathComponent,
+      !last.isEmpty, last.allSatisfy(\.isNumber)
+    else {
+      return nil
+    }
+    return last
+  }
+}
