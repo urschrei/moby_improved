@@ -25,7 +25,7 @@ jobs:
     name: Rust
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
@@ -44,7 +44,7 @@ jobs:
     name: Rust 1.88
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       # The version is an input, not the action's ref: Dependabot treats a ref
       # such as @1.88 as a version of the action, and updates it.
       - uses: dtolnay/rust-toolchain@master
@@ -59,7 +59,7 @@ jobs:
     # The app needs Xcode 26 and the iOS 18 SDK.
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-ios, aarch64-apple-ios-sim, aarch64-apple-darwin
@@ -70,7 +70,7 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Restore the Swift build caches
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ios/build
