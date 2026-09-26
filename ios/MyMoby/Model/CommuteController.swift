@@ -20,6 +20,10 @@ final class CommuteController {
   /// then continues outside commute windows until the rider stops it.
   private var isWatchingManually = false
 
+  /// `true` if the rider stopped watching during the current commute window.
+  /// The app then does not start watching again until the window ends.
+  private var isStoppedForWindow = false
+
   /// The last message about the target, and when it was made.
   private var lastMessage: (text: String, date: Date)?
   /// The time for which the Live Activity shows a message.
@@ -37,7 +41,7 @@ final class CommuteController {
   /// Starts watching if a commute window is open. Call this when the app
   /// comes to the foreground.
   func appDidBecomeActive() {
-    if settings.isCommuting() {
+    if shouldStartForWindow() {
       watch.start(state: activityState(origin: nil))
     }
   }
@@ -77,6 +81,7 @@ final class CommuteController {
 
   func stopWatching() async {
     isWatchingManually = false
+    isStoppedForWindow = settings.isCommuting()
     store.clearTarget()
     await watch.stop()
   }
@@ -101,7 +106,7 @@ final class CommuteController {
       }
       if watch.isRunning, store.target == nil, !isWatchingManually, !settings.isCommuting() {
         await watch.stop()
-      } else if !watch.isRunning, settings.isCommuting(),
+      } else if !watch.isRunning, shouldStartForWindow(),
         UIApplication.shared.applicationState == .active
       {
         // A commute window opened while the app is on screen. The session can
@@ -118,6 +123,16 @@ final class CommuteController {
         sleeper.cancel()
       }
     }
+  }
+
+  /// Returns `true` if a commute window is open and the rider has not
+  /// stopped watching during it.
+  private func shouldStartForWindow() -> Bool {
+    let isCommuting = settings.isCommuting()
+    if !isCommuting {
+      isStoppedForWindow = false
+    }
+    return isCommuting && !isStoppedForWindow
   }
 
   private static func message(for event: TargetEvent?) -> String? {
