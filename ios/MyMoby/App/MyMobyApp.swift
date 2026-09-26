@@ -26,6 +26,13 @@ struct MyMobyApp: App {
         Log.refresh.info("replaying captured feed responses")
         return ReplaySource()
       }
+      let arguments = CommandLine.arguments
+      if let index = arguments.firstIndex(of: "-fail-first"), index + 1 < arguments.count,
+        let failures = Int(arguments[index + 1])
+      {
+        Log.refresh.info("failing the first \(failures) refreshes")
+        return FailingSource(failures: failures, source: client)
+      }
     #endif
     return client
   }

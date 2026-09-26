@@ -24,4 +24,25 @@ protocol FeedSource: Sendable {
       return try Feed.parse(body: Data(contentsOf: url))
     }
   }
+
+  /// Times out on the first `failures` requests, then fetches the live feed,
+  /// to test the retries after a failed refresh. Enable it with the
+  /// `-fail-first N` launch arguments.
+  actor FailingSource: FeedSource {
+    private var failures: Int
+    private let source: any FeedSource
+
+    init(failures: Int, source: any FeedSource) {
+      self.failures = failures
+      self.source = source
+    }
+
+    func vehicleStatus() async throws -> Feed {
+      if failures > 0 {
+        failures -= 1
+        throw URLError(.timedOut)
+      }
+      return try await source.vehicleStatus()
+    }
+  }
 #endif
