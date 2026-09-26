@@ -71,7 +71,7 @@ fn draw_world(tc: &TestCase) -> World {
 /// chooses. Returns the identifiers of the vehicles requested, in order.
 fn drive(
     tc: &TestCase,
-    search: &mut WalkingSearch,
+    search: &mut WalkingSearch<std::vec::IntoIter<Candidate>>,
     routes: &HashMap<String, Route>,
     failures: &HashSet<String>,
 ) -> Vec<String> {
@@ -109,7 +109,7 @@ fn search_finds_the_k_shortest_walks(tc: TestCase) {
     let k = tc.draw(gs::integers::<usize>().min_value(1).max_value(6));
     let mut search = WalkingSearch::new(
         ORIGIN,
-        world.candidates.clone(),
+        world.candidates.clone().into_iter(),
         k,
         usize::MAX,
         &WalkCache::default(),
@@ -131,7 +131,7 @@ fn search_is_complete_when_the_driver_stops(tc: TestCase) {
     let max_requests = tc.draw(gs::integers::<usize>().max_value(40));
     let mut search = WalkingSearch::new(
         ORIGIN,
-        world.candidates,
+        world.candidates.into_iter(),
         k,
         max_requests,
         &WalkCache::default(),
@@ -148,7 +148,7 @@ fn search_requests_each_vehicle_once_within_the_budget(tc: TestCase) {
     let max_requests = tc.draw(gs::integers::<usize>().max_value(40));
     let mut search = WalkingSearch::new(
         ORIGIN,
-        world.candidates,
+        world.candidates.into_iter(),
         k,
         max_requests,
         &WalkCache::default(),
@@ -168,7 +168,7 @@ fn search_returns_k_results_when_there_are_k_candidates(tc: TestCase) {
     let count = world.candidates.len();
     let mut search = WalkingSearch::new(
         ORIGIN,
-        world.candidates,
+        world.candidates.into_iter(),
         k,
         usize::MAX,
         &WalkCache::default(),
@@ -189,7 +189,7 @@ fn failed_routes_are_estimated(tc: TestCase) {
         .collect();
     let mut search = WalkingSearch::new(
         ORIGIN,
-        world.candidates,
+        world.candidates.into_iter(),
         3,
         usize::MAX,
         &WalkCache::default(),
@@ -209,11 +209,18 @@ fn repeated_search_from_the_same_origin_uses_the_cache(tc: TestCase) {
     let world = draw_world(&tc);
     let k = tc.draw(gs::integers::<usize>().min_value(1).max_value(6));
     let mut cache = WalkCache::default();
-    let mut first = WalkingSearch::new(ORIGIN, world.candidates.clone(), k, usize::MAX, &cache);
+    let mut first = WalkingSearch::new(
+        ORIGIN,
+        world.candidates.clone().into_iter(),
+        k,
+        usize::MAX,
+        &cache,
+    );
     drive(&tc, &mut first, &world.routes, &HashSet::new());
     cache.record(&first);
 
-    let mut second = WalkingSearch::new(ORIGIN, world.candidates, k, usize::MAX, &cache);
+    let mut second =
+        WalkingSearch::new(ORIGIN, world.candidates.into_iter(), k, usize::MAX, &cache);
     let requested = drive(&tc, &mut second, &world.routes, &HashSet::new());
 
     assert_eq!(requested, Vec::<String>::new());
@@ -227,7 +234,13 @@ fn search_stops_when_no_candidate_can_be_nearer() {
     let candidates: Vec<Candidate> = (0..10)
         .map(|index| candidate(index, 100.0 * f64::from(u32::try_from(index).unwrap() + 1)))
         .collect();
-    let mut search = WalkingSearch::new(ORIGIN, candidates, 3, usize::MAX, &WalkCache::default());
+    let mut search = WalkingSearch::new(
+        ORIGIN,
+        candidates.into_iter(),
+        3,
+        usize::MAX,
+        &WalkCache::default(),
+    );
 
     let first_batch: Vec<Candidate> = std::iter::from_fn(|| search.next_request()).collect();
     assert_eq!(first_batch.len(), 3);
@@ -239,6 +252,8 @@ fn search_stops_when_no_candidate_can_be_nearer() {
     assert_eq!(search.next_request(), None);
     assert!(search.is_complete());
     assert_eq!(search.requests(), 3);
+    // The search takes the fourth candidate to find the bound, and no more.
+    assert_eq!(search.candidates_taken(), 4);
 }
 
 #[test]
@@ -250,7 +265,13 @@ fn a_long_detour_makes_the_search_continue() {
         candidate(1, 300.0),
         candidate(2, 800.0),
     ];
-    let mut search = WalkingSearch::new(ORIGIN, candidates, 1, usize::MAX, &WalkCache::default());
+    let mut search = WalkingSearch::new(
+        ORIGIN,
+        candidates.into_iter(),
+        1,
+        usize::MAX,
+        &WalkCache::default(),
+    );
 
     let first = search.next_request().unwrap();
     search.report_route(&first.vehicle_id, walk(900.0));
@@ -266,13 +287,19 @@ fn a_long_detour_makes_the_search_continue() {
 fn cache_misses_when_the_origin_moves() {
     let candidates = vec![candidate(0, 100.0)];
     let mut cache = WalkCache::default();
-    let mut search = WalkingSearch::new(ORIGIN, candidates.clone(), 1, usize::MAX, &cache);
+    let mut search = WalkingSearch::new(
+        ORIGIN,
+        candidates.clone().into_iter(),
+        1,
+        usize::MAX,
+        &cache,
+    );
     let requested = search.next_request().unwrap();
     search.report_route(&requested.vehicle_id, walk(120.0));
     cache.record(&search);
 
     let moved = Position::new(ORIGIN.lat + 0.001, ORIGIN.lon);
-    let mut search = WalkingSearch::new(moved, candidates, 1, usize::MAX, &cache);
+    let mut search = WalkingSearch::new(moved, candidates.into_iter(), 1, usize::MAX, &cache);
 
     assert!(search.next_request().is_some());
 }
@@ -280,13 +307,19 @@ fn cache_misses_when_the_origin_moves() {
 #[test]
 fn cache_removes_routes_that_searches_do_not_use() {
     let mut cache = WalkCache::default();
-    let mut search = WalkingSearch::new(ORIGIN, vec![candidate(0, 100.0)], 1, usize::MAX, &cache);
+    let mut search = WalkingSearch::new(
+        ORIGIN,
+        vec![candidate(0, 100.0)].into_iter(),
+        1,
+        usize::MAX,
+        &cache,
+    );
     let requested = search.next_request().unwrap();
     search.report_route(&requested.vehicle_id, walk(120.0));
     cache.record(&search);
     assert_eq!(cache.len(), 1);
 
-    let empty = WalkingSearch::new(ORIGIN, Vec::new(), 1, usize::MAX, &cache);
+    let empty = WalkingSearch::new(ORIGIN, Vec::new().into_iter(), 1, usize::MAX, &cache);
     for _ in 0..WalkCache::MAX_IDLE_SEARCHES {
         cache.record(&empty);
     }

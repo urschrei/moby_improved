@@ -37,9 +37,8 @@ let spire = Coordinate(lat: 53.349805, lon: -6.26031)
 
 @Test func walkerCompletesWithAFakeRouter() throws {
   let feed = try Feed.parse(body: fixture("vehicle_status"))
-  let bikes = feed.bikes(origin: spire, minRangeM: 10_000)
   let walker = Walker()
-  walker.start(origin: spire, bikes: bikes, k: 3, maxRequests: 20)
+  walker.start(origin: spire, feed: feed, minRangeM: 10_000, k: 3, maxRequests: 20)
 
   var requests = 0
   while let bike = walker.nextRequest() {
@@ -50,10 +49,12 @@ let spire = Coordinate(lat: 53.349805, lon: -6.26031)
   #expect(walker.isComplete())
   #expect(walker.results().count == 3)
   #expect(requests >= 3)
+  // The search takes only the bikes that it needs from the index.
+  #expect(walker.bikesTaken() < feed.bikes(origin: spire, minRangeM: 10_000).count)
   walker.finish()
 
   // The same search again uses the cached routes.
-  walker.start(origin: spire, bikes: bikes, k: 3, maxRequests: 20)
+  walker.start(origin: spire, feed: feed, minRangeM: 10_000, k: 3, maxRequests: 20)
   #expect(walker.nextRequest() == nil)
   #expect(walker.isComplete())
 }

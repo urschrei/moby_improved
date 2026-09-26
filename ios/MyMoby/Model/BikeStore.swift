@@ -128,11 +128,13 @@ final class BikeStore {
   }
 
   private func rank(from origin: Coordinate) async {
+    guard let feed else { return }
     rankedFrom = origin
     // The search finds the bikes with the shortest walk by distance. The app
     // shows walking times, so sort by time.
     nearest = await router.rank(
-      origin: origin, bikes: bikes, k: rankedCount, maxRequests: maxRoutingRequests
+      origin: origin, feed: feed, minRangeM: settings.values.minRangeKm * 1000, k: rankedCount,
+      maxRequests: maxRoutingRequests
     )
     .sorted { $0.walkingS < $1.walkingS }
   }

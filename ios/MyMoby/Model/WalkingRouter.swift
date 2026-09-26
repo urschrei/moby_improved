@@ -9,10 +9,10 @@ import MobyKit
 final class WalkingRouter {
   private let walker = Walker()
 
-  func rank(origin: Coordinate, bikes: [Bike], k: UInt32, maxRequests: UInt32) async
-    -> [WalkedBike]
+  func rank(origin: Coordinate, feed: Feed, minRangeM: Double, k: UInt32, maxRequests: UInt32)
+    async -> [WalkedBike]
   {
-    walker.start(origin: origin, bikes: bikes, k: k, maxRequests: maxRequests)
+    walker.start(origin: origin, feed: feed, minRangeM: minRangeM, k: k, maxRequests: maxRequests)
     await withTaskGroup(of: (String, Walk?).self) { group in
       while let bike = walker.nextRequest() {
         group.addTask { (bike.vehicleId, await Self.eta(from: origin, to: bike)) }
@@ -30,7 +30,7 @@ final class WalkingRouter {
     }
     let results = walker.results()
     Log.routing.info(
-      "ranked \(results.count) of \(bikes.count) bikes, \(results.filter(\.isEstimate).count) estimated"
+      "ranked \(results.count) bikes from \(self.walker.bikesTaken()) taken, \(results.filter(\.isEstimate).count) estimated"
     )
     walker.finish()
     return results

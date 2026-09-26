@@ -4,6 +4,8 @@ use jiff::SignedDuration;
 use jiff::Timestamp;
 use moby_core::Filter;
 use moby_core::Freshness;
+use moby_core::SharedNearest;
+use moby_core::VehicleIndex;
 use moby_core::gbfs::Envelope;
 use moby_core::gbfs::FeedName;
 use moby_core::gbfs::Manifest;
@@ -19,6 +21,7 @@ use crate::TargetStatus;
 #[derive(Debug, uniffi::Object)]
 pub struct Feed {
     envelope: Envelope<VehicleStatus>,
+    index: Arc<VehicleIndex>,
 }
 
 /// Returns the URL of the `vehicle_status` feed from a `gbfs.json` body.
@@ -59,9 +62,9 @@ impl Feed {
     /// Returns an error if the body is not a `vehicle_status` feed.
     #[uniffi::constructor]
     pub fn parse(body: &[u8]) -> Result<Arc<Self>, MobyError> {
-        Ok(Arc::new(Self {
-            envelope: VehicleStatus::from_slice(body)?,
-        }))
+        let envelope = VehicleStatus::from_slice(body)?;
+        let index = Arc::new(VehicleIndex::new(&envelope.data.vehicles));
+        Ok(Arc::new(Self { envelope, index }))
     }
 
     /// Returns the time of the last update, in milliseconds since the epoch.
@@ -95,16 +98,24 @@ impl Feed {
     /// nearest to `origin` first.
     #[must_use]
     pub fn bikes(&self, origin: Coordinate, min_range_m: f64) -> Vec<Bike> {
-        moby_core::candidates(
-            &self.envelope.data.vehicles,
-            origin.into(),
-            Filter { min_range_m },
-        )
-        .into_iter()
-        .map(Bike::from)
-        .collect()
+        self.index
+            .nearest(origin.into(), Filter { min_range_m })
+            .map(Bike::from)
+            .collect()
     }
+}
 
+impl Feed {
+    /// Returns the available bikes with at least `min_range_m` of range,
+    /// nearest to `origin` first, as an iterator that shares the index.
+    pub(crate) fn nearest(&self, origin: Coordinate, min_range_m: f64) -> SharedNearest {
+        self.index
+            .shared_nearest(origin.into(), Filter { min_range_m })
+    }
+}
+
+#[uniffi::export]
+impl Feed {
     /// Returns the state of the bike `vehicle_id`, which the rider chose at
     /// `chosen_at`.
     #[must_use]

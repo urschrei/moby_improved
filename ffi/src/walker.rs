@@ -1,12 +1,15 @@
+use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
 
 use moby_core::Route;
+use moby_core::SharedNearest;
 use moby_core::WalkCache;
 use moby_core::WalkingSearch;
 
 use crate::Bike;
 use crate::Coordinate;
+use crate::Feed;
 use crate::WalkedBike;
 
 /// Finds the bikes with the shortest walk, with routes from the host's router.
@@ -22,7 +25,7 @@ pub struct Walker {
 #[derive(Debug)]
 struct State {
     cache: WalkCache,
-    search: Option<WalkingSearch>,
+    search: Option<WalkingSearch<SharedNearest>>,
 }
 
 #[uniffi::export]
@@ -39,15 +42,23 @@ impl Walker {
         }
     }
 
-    /// Starts a search for the `k` nearest bikes on foot from `origin`.
+    /// Starts a search for the `k` nearest bikes on foot from `origin`, over
+    /// the bikes in `feed` with at least `min_range_m` of range.
     ///
-    /// `bikes` must be in straight-line order, as [`crate::Feed::bikes`]
-    /// returns them. The search replaces a search that is not finished.
-    pub fn start(&self, origin: Coordinate, bikes: Vec<Bike>, k: u32, max_requests: u32) {
+    /// The search takes bikes from the feed's index only when it needs them.
+    /// It replaces a search that is not finished.
+    pub fn start(
+        &self,
+        origin: Coordinate,
+        feed: &Arc<Feed>,
+        min_range_m: f64,
+        k: u32,
+        max_requests: u32,
+    ) {
         let mut state = self.lock();
         let search = WalkingSearch::new(
             origin.into(),
-            bikes.into_iter().map(Into::into).collect(),
+            feed.nearest(origin, min_range_m),
             k as usize,
             max_requests as usize,
             &state.cache,
@@ -88,8 +99,15 @@ impl Walker {
     pub fn is_complete(&self) -> bool {
         self.lock()
             .search
-            .as_ref()
+            .as_mut()
             .is_none_or(WalkingSearch::is_complete)
+    }
+
+    /// Returns the number of bikes that the search took from the index.
+    pub fn bikes_taken(&self) -> u32 {
+        self.lock().search.as_ref().map_or(0, |search| {
+            u32::try_from(search.candidates_taken()).unwrap_or(u32::MAX)
+        })
     }
 
     /// Returns the best bikes found so far, shortest walk first.

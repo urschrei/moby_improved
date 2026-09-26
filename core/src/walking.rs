@@ -11,15 +11,19 @@ use crate::Position;
 /// [`WalkingSearch::report_failure`]. The host can have more than one request
 /// in flight at a time.
 ///
-/// The search asks for candidates in order of straight-line distance. It stops
-/// when the straight-line distance of the next candidate is more than the
-/// `k`-th shortest walking distance found. A walking route is never shorter
-/// than the straight line, so no remaining candidate can be in the result.
+/// The search takes candidates from `S` in order of straight-line distance,
+/// and only when it needs them. It stops when the straight-line distance of
+/// the next candidate is more than the `k`-th shortest walking distance
+/// found. A walking route is never shorter than the straight line, so no
+/// remaining candidate can be in the result.
 #[derive(Clone, Debug)]
-pub struct WalkingSearch {
+pub struct WalkingSearch<S> {
     origin: Position,
     k: usize,
     max_requests: usize,
+    source: S,
+    is_exhausted: bool,
+    cached: CachedRoutes,
     candidates: Vec<Candidate>,
     slots: Vec<Slot>,
     next: usize,
@@ -67,33 +71,33 @@ pub const DETOUR_FACTOR: f64 = 1.3;
 /// The walking speed in metres per second for estimated routes.
 pub const WALKING_SPEED_M_S: f64 = 1.4;
 
-impl WalkingSearch {
-    /// Starts a search from `origin` over candidates in straight-line order,
-    /// such as the output of [`crate::candidates`].
+impl<S> WalkingSearch<S>
+where
+    S: Iterator<Item = Candidate>,
+{
+    /// Starts a search from `origin` over the candidates from `source`, which
+    /// must come in order of straight-line distance, such as the output of
+    /// [`crate::VehicleIndex::nearest`].
     ///
     /// Routes in `cache` are used without a request. The search issues no more
     /// than `max_requests` requests.
     #[must_use]
     pub fn new(
         origin: Position,
-        candidates: Vec<Candidate>,
+        source: S,
         k: usize,
         max_requests: usize,
         cache: &WalkCache,
     ) -> Self {
-        let slots = candidates
-            .iter()
-            .map(|candidate| match cache.get(origin, candidate) {
-                Some(route) => Slot::Walked(route),
-                None => Slot::Unrouted,
-            })
-            .collect();
         Self {
             origin,
             k,
             max_requests,
-            candidates,
-            slots,
+            source,
+            is_exhausted: false,
+            cached: cache.routes_from(origin),
+            candidates: Vec::new(),
+            slots: Vec::new(),
             next: 0,
             requests: 0,
         }
@@ -130,7 +134,7 @@ impl WalkingSearch {
     /// Returns `true` if no request is in flight and no further request is
     /// useful.
     #[must_use]
-    pub fn is_complete(&self) -> bool {
+    pub fn is_complete(&mut self) -> bool {
         self.in_flight() == 0 && self.peek().is_none()
     }
 
@@ -175,13 +179,32 @@ impl WalkingSearch {
         self.origin
     }
 
+    /// Returns the number of candidates that the search took from its
+    /// source.
+    #[must_use]
+    pub fn candidates_taken(&self) -> usize {
+        self.candidates.len()
+    }
+
     /// Returns the index of the next candidate to route, if a request is
-    /// useful now.
-    fn peek(&self) -> Option<usize> {
+    /// useful now. Takes candidates from the source until one needs a route.
+    fn peek(&mut self) -> Option<usize> {
         if self.requests == self.max_requests {
             return None;
         }
-        let index = (self.next..self.slots.len()).find(|&index| self.slots[index].is_unrouted())?;
+        let index = loop {
+            if let Some(index) =
+                (self.next..self.slots.len()).find(|&index| self.slots[index].is_unrouted())
+            {
+                break index;
+            }
+            let candidate = self.take_candidate()?;
+            // A candidate with a cached route needs no request. If it is past
+            // the bound, so is every later candidate.
+            if self.is_past_bound(candidate.straight_line_m) {
+                return None;
+            }
+        };
 
         let bound_m = self.candidates[index].straight_line_m;
         let settled = self.settled_distances();
@@ -191,6 +214,31 @@ impl WalkingSearch {
             settled.len() + self.in_flight() < self.k
         };
         is_useful.then_some(index)
+    }
+
+    /// Takes the next candidate from the source, and returns a copy of it.
+    fn take_candidate(&mut self) -> Option<Candidate> {
+        if self.is_exhausted {
+            return None;
+        }
+        let Some(candidate) = self.source.next() else {
+            self.is_exhausted = true;
+            return None;
+        };
+        self.slots.push(match self.cached.get(&candidate) {
+            Some(route) => Slot::Walked(route),
+            None => Slot::Unrouted,
+        });
+        self.candidates.push(candidate.clone());
+        Some(candidate)
+    }
+
+    /// Returns `true` if `k` walking distances are known and the `k`-th is not
+    /// more than `bound_m`.
+    fn is_past_bound(&self, bound_m: f64) -> bool {
+        self.settled_distances()
+            .get(self.k.wrapping_sub(1))
+            .is_some_and(|&kth_m| kth_m <= bound_m)
     }
 
     fn settled_distances(&self) -> Vec<f64> {
@@ -251,7 +299,7 @@ impl WalkCache {
     /// search has used for [`WalkCache::MAX_IDLE_SEARCHES`] searches.
     ///
     /// Estimated routes are not stored.
-    pub fn record(&mut self, search: &WalkingSearch) {
+    pub fn record<S>(&mut self, search: &WalkingSearch<S>) {
         self.generation += 1;
         for (candidate, slot) in search.candidates.iter().zip(&search.slots) {
             if let Slot::Walked(route) = slot {
@@ -281,10 +329,18 @@ impl WalkCache {
         self.entries.is_empty()
     }
 
-    fn get(&self, origin: Position, candidate: &Candidate) -> Option<Route> {
-        self.entries
-            .get(&self.key(origin, candidate))
-            .map(|entry| entry.route)
+    /// Returns the routes from the grid cell of `origin`.
+    fn routes_from(&self, origin: Position) -> CachedRoutes {
+        let origin_cell = Cell::of(origin, self.origin_cell_m);
+        CachedRoutes {
+            vehicle_cell_m: self.vehicle_cell_m,
+            routes: self
+                .entries
+                .iter()
+                .filter(|(key, _)| key.origin_cell == origin_cell)
+                .map(|(key, entry)| ((key.vehicle_id.clone(), key.vehicle_cell), entry.route))
+                .collect(),
+        }
     }
 
     fn key(&self, origin: Position, candidate: &Candidate) -> CacheKey {
@@ -332,6 +388,25 @@ struct CacheKey {
     vehicle_id: String,
     origin_cell: Cell,
     vehicle_cell: Cell,
+}
+
+/// The routes in a [`WalkCache`] from one origin cell, keyed by vehicle and
+/// vehicle cell.
+#[derive(Clone, Debug)]
+struct CachedRoutes {
+    vehicle_cell_m: f64,
+    routes: HashMap<(String, Cell), Route>,
+}
+
+impl CachedRoutes {
+    fn get(&self, candidate: &Candidate) -> Option<Route> {
+        self.routes
+            .get(&(
+                candidate.vehicle_id.clone(),
+                Cell::of(candidate.position, self.vehicle_cell_m),
+            ))
+            .copied()
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
