@@ -2,11 +2,12 @@ import SwiftUI
 
 @main
 struct MyMobyApp: App {
-  @State private var store = BikeStore(source: FixtureSource())
+  @State private var store = BikeStore(source: GBFSClient())
+  @State private var location = LocationProvider()
 
   var body: some Scene {
     WindowGroup {
-      BikeListView(store: store)
+      BikeListView(store: store, location: location)
     }
   }
 }
