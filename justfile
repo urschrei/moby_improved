@@ -4,6 +4,8 @@ generated := kit / "Sources/MobyKit/Generated"
 headers := "target/uniffi/headers"
 ios_target := "18.0"
 macos_target := "15.0"
+# The Swift sources that are not generated.
+swift_sources := "ios/MyMoby ios/MobyKit/Tests ios/MobyKit/Package.swift ios/MobyKit/Sources/MobyKit/Extensions.swift ios/Shared ios/MyMobyWidgets ios/Icon"
 
 # Build the Rust library for iOS, the simulator and macOS, and regenerate the Swift bindings.
 ffi:
@@ -35,19 +37,24 @@ swift-test: ffi
 project:
     cd ios && xcodegen generate
 
-# Build the app for the iOS 18 simulator.
-app: ffi project
+# Build the app for the iOS 18 simulator. Arguments are build settings for
+# xcodebuild, for example CODE_SIGNING_ALLOWED=NO.
+app *settings: ffi project
     xcodebuild -project ios/MyMoby.xcodeproj -scheme MyMoby \
         -destination 'generic/platform=iOS Simulator' \
-        -derivedDataPath ios/build ARCHS=arm64 build
+        -derivedDataPath ios/build ARCHS=arm64 {{settings}} build
 
 # Draw the app icon into the asset catalog.
 icon:
     swift ios/Icon/MakeIcon.swift ios/MyMoby/Assets.xcassets/AppIcon.appiconset
 
+# Check the format of the Swift sources.
+swift-lint:
+    xcrun swift-format lint --strict -r {{swift_sources}}
+
 # Format the Swift sources.
 swift-fmt:
-    xcrun swift-format format -i -r ios/MyMoby ios/MobyKit/Tests ios/MobyKit/Package.swift ios/MobyKit/Sources/MobyKit/Extensions.swift ios/Shared ios/MyMobyWidgets ios/Icon
+    xcrun swift-format format -i -r {{swift_sources}}
 
 # Build a Release copy and install it on the named iPhone, by default the
 # one in MOBY_DEVICE.
