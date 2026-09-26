@@ -13,6 +13,8 @@ struct BikeMap: View {
   let route: MKRoute?
   @Binding var camera: MapCameraPosition
   @Binding var selectedID: String?
+  /// The scope that connects the map to its controls in the overlay.
+  let scope: Namespace.ID
   /// The distance of the camera from the map, in metres.
   @State private var cameraDistance: Double = .infinity
 
@@ -20,7 +22,7 @@ struct BikeMap: View {
   private let bayDistance: Double = 1500
 
   var body: some View {
-    Map(position: $camera, selection: $selectedID) {
+    Map(position: $camera, selection: $selectedID, scope: scope) {
       UserAnnotation()
 
       if showsBays {
@@ -79,10 +81,8 @@ struct BikeMap: View {
     .onMapCameraChange { context in
       cameraDistance = context.camera.distance
     }
-    .mapControls {
-      MapUserLocationButton()
-      MapCompass()
-    }
+    // The controls are in the overlay, in line with the other buttons.
+    .mapControls {}
   }
 
   private var showsBays: Bool {

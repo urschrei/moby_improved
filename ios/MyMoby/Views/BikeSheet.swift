@@ -41,8 +41,21 @@ struct BikeSheet: View {
             }
           }
         }
-        if let nearestBay {
-          ParkingLine(bay: nearestBay)
+        HStack {
+          if let nearestBay {
+            ParkingLine(bay: nearestBay)
+          }
+          Spacer()
+          Button {
+            isShowingSettings = true
+          } label: {
+            Image(systemName: "gearshape.fill")
+              .foregroundStyle(.secondary)
+              .frame(width: 44, height: 44)
+              .background(.quaternary, in: Circle())
+          }
+          .buttonStyle(.plain)
+          .accessibilityLabel("Settings")
         }
         VStack(alignment: .leading, spacing: 12) {
           FeedStatus(

@@ -15,6 +15,7 @@ struct NearbyView: View {
   @State private var selectedID: String?
   @State private var route: MKRoute?
   @State private var detent: PresentationDetent = BikeSheet.collapsed
+  @Namespace private var mapScope
 
   /// The number of bikes to show on the map.
   private let mapLimit = 60
@@ -30,13 +31,15 @@ struct NearbyView: View {
       bays: bays,
       route: route,
       camera: $camera,
-      selectedID: $selectedID
+      selectedID: $selectedID,
+      scope: mapScope
     )
     .safeAreaInset(edge: .top) {
       MapControls(
-        origin: $origin, isShowingSettings: $isShowingSettings, controller: controller,
-        settings: settings, location: location.coordinate)
+        origin: $origin, controller: controller, settings: settings,
+        location: location.coordinate, mapScope: mapScope)
     }
+    .mapScope(mapScope)
     .safeAreaPadding(.bottom, BikeSheet.collapsedHeight)
     .sheet(isPresented: .constant(true)) {
       BikeSheet(
@@ -128,26 +131,21 @@ struct NearbyView: View {
 /// The controls above the map.
 struct MapControls: View {
   @Binding var origin: Origin
-  @Binding var isShowingSettings: Bool
   let controller: CommuteController
   let settings: Settings
   let location: Coordinate?
+  let mapScope: Namespace.ID
 
   var body: some View {
     HStack(spacing: 8) {
       OriginMenu(origin: $origin, settings: settings, location: location)
       Spacer()
       WatchControl(controller: controller)
-      Button {
-        isShowingSettings = true
-      } label: {
-        Image(systemName: "gearshape.fill")
-          .foregroundStyle(.secondary)
-          .frame(width: 44, height: 44)
-          .background(.regularMaterial, in: Circle())
-      }
-      .buttonStyle(.plain)
-      .accessibilityLabel("Settings")
+      MapCompass(scope: mapScope)
+        .mapControlVisibility(.automatic)
+      MapUserLocationButton(scope: mapScope)
+        .buttonBorderShape(.circle)
+        .tint(.blue)
     }
     .font(.subheadline.weight(.semibold))
     .padding(.horizontal, 16)
