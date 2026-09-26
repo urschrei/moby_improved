@@ -2,3 +2,8 @@
 //!
 //! The crate does no network I/O. The host application fetches the feeds and
 //! gives the response bodies to this crate for parsing and queries.
+
+mod error;
+pub mod gbfs;
+
+pub use error::Error;
