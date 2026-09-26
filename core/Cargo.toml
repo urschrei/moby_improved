@@ -1,0 +1,12 @@
+[package]
+name = "moby-core"
+version = "0.1.0"
+description = "GBFS client logic for MOBY Dublin: parsing, filtering and ranking of available bikes"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

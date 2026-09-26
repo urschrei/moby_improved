@@ -1,0 +1,30 @@
+{
+  "last_updated": "2026-09-26T11:27:57.149Z",
+  "ttl": 0,
+  "version": "3.0",
+  "data": {
+    "system_id": "2023",
+    "languages": [
+      "en"
+    ],
+    "name": [
+      {
+        "text": "Dublin",
+        "language": "en"
+      }
+    ],
+    "opening_hours": "24/7",
+    "feed_contact_email": "",
+    "timezone": "Europe/Dublin",
+    "rental_apps": {
+      "android": {
+        "store_uri": "https://play.google.com/store/apps/details?id=com.sharebike.android.moby",
+        "discovery_uri": "https://moby-move.app.link/"
+      },
+      "ios": {
+        "store_uri": "https://apps.apple.com/app/id1579504337",
+        "discovery_uri": "https://moby-move.app.link/"
+      }
+    }
+  }
+}

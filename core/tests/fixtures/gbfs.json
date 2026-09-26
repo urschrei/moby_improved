@@ -1,0 +1,45 @@
+{
+  "last_updated": "2026-09-26T11:27:56.918Z",
+  "ttl": 0,
+  "version": "3.0",
+  "data": {
+    "feeds": [
+      {
+        "name": "gbfs",
+        "url": "https://moby-move.rideatom.com/gbfs/v3_0/en/gbfs?id=2023"
+      },
+      {
+        "name": "gbfs_versions",
+        "url": "https://moby-move.rideatom.com/gbfs/v3_0/en/gbfs_versions?id=2023"
+      },
+      {
+        "name": "system_information",
+        "url": "https://moby-move.rideatom.com/gbfs/v3_0/en/system_information?id=2023"
+      },
+      {
+        "name": "station_information",
+        "url": "https://moby-move.rideatom.com/gbfs/v3_0/en/station_information?id=2023"
+      },
+      {
+        "name": "station_status",
+        "url": "https://moby-move.rideatom.com/gbfs/v3_0/en/station_status?id=2023"
+      },
+      {
+        "name": "vehicle_types",
+        "url": "https://moby-move.rideatom.com/gbfs/v3_0/en/vehicle_types?id=2023"
+      },
+      {
+        "name": "vehicle_status",
+        "url": "https://moby-move.rideatom.com/gbfs/v3_0/en/vehicle_status?id=2023"
+      },
+      {
+        "name": "system_pricing_plans",
+        "url": "https://moby-move.rideatom.com/gbfs/v3_0/en/system_pricing_plans?id=2023"
+      },
+      {
+        "name": "geofencing_zones",
+        "url": "https://moby-move.rideatom.com/gbfs/v3_0/en/geofencing_zones?id=2023"
+      }
+    ]
+  }
+}

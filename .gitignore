@@ -1,0 +1,7 @@
+/target
+/ios/build
+/ios/MobyKit/Generated
+*.xcframework
+xcuserdata/
+DerivedData/
+.DS_Store
