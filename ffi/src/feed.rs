@@ -13,6 +13,7 @@ use crate::Bike;
 use crate::Coordinate;
 use crate::FeedAge;
 use crate::MobyError;
+use crate::TargetStatus;
 
 /// A parsed `vehicle_status` feed.
 #[derive(Debug, uniffi::Object)]
@@ -91,5 +92,12 @@ impl Feed {
         .into_iter()
         .map(Bike::from)
         .collect()
+    }
+
+    /// Returns the state of the bike `vehicle_id`, which the rider chose at
+    /// `chosen_at`.
+    #[must_use]
+    pub fn target_status(&self, vehicle_id: &str, chosen_at: Coordinate) -> TargetStatus {
+        moby_core::target_status(&self.envelope.data.vehicles, vehicle_id, chosen_at.into()).into()
     }
 }

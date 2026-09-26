@@ -48,6 +48,32 @@ pub struct FeedAge {
     pub is_stale: bool,
 }
 
+/// The state of the bike that the rider is walking to.
+#[derive(Clone, Copy, Debug, PartialEq, uniffi::Enum)]
+pub enum TargetStatus {
+    /// The bike is available at the same position.
+    Available,
+    /// The bike is available at a new position.
+    Moved {
+        /// The new position.
+        coordinate: Coordinate,
+    },
+    /// The bike is not available. Another rider has probably rented it.
+    Gone,
+}
+
+impl From<moby_core::TargetStatus> for TargetStatus {
+    fn from(status: moby_core::TargetStatus) -> Self {
+        match status {
+            moby_core::TargetStatus::Available => Self::Available,
+            moby_core::TargetStatus::Moved(position) => Self::Moved {
+                coordinate: position.into(),
+            },
+            moby_core::TargetStatus::Gone => Self::Gone,
+        }
+    }
+}
+
 impl From<Coordinate> for Position {
     fn from(coordinate: Coordinate) -> Self {
         Position::new(coordinate.lat, coordinate.lon)

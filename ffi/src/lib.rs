@@ -15,6 +15,7 @@ pub use feed::vehicle_status_url;
 pub use records::Bike;
 pub use records::Coordinate;
 pub use records::FeedAge;
+pub use records::TargetStatus;
 pub use records::WalkedBike;
 pub use schedule::CommuteWindow;
 pub use schedule::schedule_is_active;
