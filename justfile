@@ -45,10 +45,11 @@ app: ffi project
 swift-fmt:
     xcrun swift-format format -i -r ios/MyMoby ios/MobyKit/Tests ios/MobyKit/Package.swift ios/MobyKit/Sources/MobyKit/Extensions.swift ios/Shared ios/MyMobyWidgets
 
-# Build a Release copy and install it on the iPhone named in MOBY_DEVICE.
-device: ffi project
+# Build a Release copy and install it on the named iPhone, by default the
+# one in MOBY_DEVICE.
+device name=env("MOBY_DEVICE"): ffi project
     xcodebuild -project ios/MyMoby.xcodeproj -scheme MyMoby -configuration Release \
         -destination 'generic/platform=iOS' -derivedDataPath ios/build \
         -allowProvisioningUpdates build
-    xcrun devicectl device install app --device "$MOBY_DEVICE" \
+    xcrun devicectl device install app --device "{{ name }}" \
         ios/build/Build/Products/Release-iphoneos/MyMoby.app

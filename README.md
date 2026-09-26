@@ -43,8 +43,10 @@ A free Apple ID signs the app for 7 days. After that, the app does not open unti
 5. Build and install:
 
    ```bash
-   MOBY_DEVICE="YOUR_DEVICE_NAME" just device
+   just device "YOUR_DEVICE_NAME"
    ```
+
+   To leave out the name, set `MOBY_DEVICE` in your shell profile. Without a name or the variable, the recipe stops before it builds.
 
 6. On the iPhone, trust the developer certificate in **Settings > General > VPN & Device Management**.
 
