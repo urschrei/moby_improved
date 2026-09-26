@@ -61,6 +61,13 @@ The app watches in the background only if it starts in the foreground. A Shortcu
 
 In a commute window, the app starts watching when it opens. It stops at the end of the window unless you are walking to a bike.
 
+### If Open in MOBY goes to the App Store
+
+The rental links are Branch universal links on `moby-move.app.link`. If iOS has recorded a choice to open that domain in Safari, the link goes to the App Store instead of the MOBY app. To open the domain in the MOBY app again:
+
+1. Paste a rental link, for example `https://moby-move.app.link/2025070027`, into a note in Notes.
+2. Touch and hold the link, then tap **Open in MOBY**.
+
 ## Developing
 
 | Command | Action |
