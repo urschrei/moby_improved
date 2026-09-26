@@ -6,7 +6,7 @@ The logic is in a Rust crate (`core`), exposed to a SwiftUI app through UniFFI (
 
 ## Features
 
-- Available bikes with at least a minimum range, ranked by MapKit walking time from the current position or a saved place (home, crèche, work).
+- Available bikes with at least a minimum range, ranked by MapKit walking time from the current position or a saved place (home, crèche and two workplaces).
 - A map with the nearest bikes, the walking route to a selected bike, and parking bays (the geofencing zones where a ride can end).
 - Faster refreshes in commute windows, and a warning when the feed is more than 10 minutes old.
 - Background watching with a Live Activity: after **Walk there**, the app checks the chosen bike on each refresh. If another rider rents it, the app picks the next nearest bike and sends a notification that opens Maps at it.

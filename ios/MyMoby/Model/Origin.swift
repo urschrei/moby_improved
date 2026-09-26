@@ -5,6 +5,7 @@ enum PlaceKind: String, CaseIterable, Codable, Identifiable, CodingKeyRepresenta
   case home
   case creche
   case work
+  case secondWork
 
   var id: Self { self }
 
@@ -13,6 +14,7 @@ enum PlaceKind: String, CaseIterable, Codable, Identifiable, CodingKeyRepresenta
     case .home: "Home"
     case .creche: "Crèche"
     case .work: "Work"
+    case .secondWork: "Work 2"
     }
   }
 
@@ -21,6 +23,7 @@ enum PlaceKind: String, CaseIterable, Codable, Identifiable, CodingKeyRepresenta
     case .home: "house"
     case .creche: "figure.and.child.holdinghands"
     case .work: "briefcase"
+    case .secondWork: "building.2"
     }
   }
 }
