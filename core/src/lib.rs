@@ -4,6 +4,7 @@
 //! gives the response bodies to this crate for parsing and queries.
 
 mod error;
+mod fleet;
 mod freshness;
 pub mod gbfs;
 mod parking;
@@ -14,6 +15,9 @@ mod target;
 mod walking;
 
 pub use error::Error;
+pub use fleet::Nearest;
+pub use fleet::SharedNearest;
+pub use fleet::VehicleIndex;
 pub use freshness::Freshness;
 pub use parking::Bay;
 pub use parking::NearbyBay;

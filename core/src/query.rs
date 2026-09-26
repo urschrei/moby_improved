@@ -25,6 +25,9 @@ pub struct Candidate {
 
 /// Returns the vehicles that satisfy the filter, nearest to the origin first.
 ///
+/// This is a linear scan. [`crate::VehicleIndex`] answers the same query from
+/// a spatial index, and takes only as many vehicles as the caller uses.
+///
 /// A vehicle is a candidate if it is available, it has a position, and its
 /// current range is at least `filter.min_range_m`. Vehicles that do not report
 /// a range are not candidates.
