@@ -8,6 +8,7 @@ mod freshness;
 pub mod gbfs;
 mod position;
 mod query;
+mod walking;
 
 pub use error::Error;
 pub use freshness::Freshness;
@@ -15,3 +16,7 @@ pub use position::Position;
 pub use query::Candidate;
 pub use query::Filter;
 pub use query::candidates;
+pub use walking::RankedVehicle;
+pub use walking::Route;
+pub use walking::WalkCache;
+pub use walking::WalkingSearch;
