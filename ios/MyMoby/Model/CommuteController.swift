@@ -65,6 +65,18 @@ final class CommuteController {
     Handoff.walk(to: bike)
   }
 
+  /// Walks to the bike in a link from the Live Activity. If the bike is not
+  /// in the feed, opens Maps at the position in the link.
+  func walk(to link: WalkLink) {
+    if let target = store.target, target.bike.vehicleId == link.vehicleID {
+      Handoff.walk(to: target.bike)
+    } else if let bike = store.bikes.first(where: { $0.vehicleId == link.vehicleID }) {
+      walk(to: bike)
+    } else {
+      Handoff.walk(to: Coordinate(lat: link.latitude, lon: link.longitude))
+    }
+  }
+
   /// Makes `bike` the target, marks it as reserved, and opens it in the
   /// MOBY app so that the rider can reserve it there.
   ///
@@ -195,7 +207,8 @@ final class CommuteController {
         rangeKm: Int(target.bike.rangeM / 1000),
         bikeCount: store.bikes.count,
         message: message,
-        updated: updated)
+        updated: updated,
+        walk: Self.walkLink(target.bike))
     }
     let nearest = store.nearest.first
     return BikeActivityAttributes.ContentState(
@@ -205,6 +218,12 @@ final class CommuteController {
       rangeKm: nearest.map { Int($0.bike.rangeM / 1000) },
       bikeCount: store.bikes.count,
       message: message,
-      updated: updated)
+      updated: updated,
+      walk: nearest.map { Self.walkLink($0.bike) })
+  }
+
+  private static func walkLink(_ bike: Bike) -> WalkLink {
+    WalkLink(
+      vehicleID: bike.vehicleId, latitude: bike.coordinate.lat, longitude: bike.coordinate.lon)
   }
 }

@@ -27,5 +27,7 @@ struct BikeActivityAttributes: ActivityAttributes {
     var message: String?
     /// The time of the feed.
     var updated: Date
+    /// The link that starts walking to the bike that the activity shows.
+    var walk: WalkLink?
   }
 }

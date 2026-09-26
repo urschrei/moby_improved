@@ -50,6 +50,11 @@ struct NearbyView: View {
       .interactiveDismissDisabled()
     }
     .onAppear { location.start() }
+    .onOpenURL { url in
+      if let link = WalkLink(url: url) {
+        controller.walk(to: link)
+      }
+    }
     .task { await parking.load() }
     .task(id: selectedID) {
       route = nil

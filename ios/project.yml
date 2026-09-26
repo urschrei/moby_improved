@@ -36,6 +36,9 @@ targets:
         NSLocationWhenInUseUsageDescription: MyMoby uses your location to find the nearest bikes.
         UIBackgroundModes: [location]
         NSSupportsLiveActivities: true
+        CFBundleURLTypes:
+          - CFBundleURLName: $(PRODUCT_BUNDLE_IDENTIFIER)
+            CFBundleURLSchemes: [mymoby]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(MOBY_BUNDLE_ID)
