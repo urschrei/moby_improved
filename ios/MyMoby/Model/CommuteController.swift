@@ -20,6 +20,7 @@ enum WatchEnd: Equatable {
 final class CommuteController {
   let store: BikeStore
   let watch: WatchSession
+  let streets = StreetNames()
   private let settings: Settings
 
   /// The wait before the next refresh. Cancelling it starts the next
@@ -62,14 +63,19 @@ final class CommuteController {
     watch.start(state: activityState(origin: nil))
     Task { await Notifier.shared.requestAuthorization() }
     sleeper?.cancel()
-    Handoff.walk(to: bike)
+    directions(to: bike)
+  }
+
+  /// Opens Maps with walking directions to `bike`.
+  func directions(to bike: Bike) {
+    Handoff.walk(to: bike, street: streets.street(for: bike))
   }
 
   /// Walks to the bike in a link from the Live Activity. If the bike is not
   /// in the feed, opens Maps at the position in the link.
   func walk(to link: WalkLink) {
     if let target = store.target, target.bike.vehicleId == link.vehicleID {
-      Handoff.walk(to: target.bike)
+      directions(to: target.bike)
     } else if let bike = store.bikes.first(where: { $0.vehicleId == link.vehicleID }) {
       walk(to: bike)
     } else {

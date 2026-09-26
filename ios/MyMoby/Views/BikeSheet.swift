@@ -14,7 +14,7 @@ struct BikeSheet: View {
   @Binding var isShowingSettings: Bool
 
   /// The height of the sheet when it shows only the featured bike.
-  static let collapsedHeight: CGFloat = 290
+  static let collapsedHeight: CGFloat = 316
   static let collapsed = PresentationDetent.height(collapsedHeight)
 
   private var store: BikeStore { controller.store }
@@ -170,9 +170,14 @@ struct FeaturedSection: View {
           Spacer()
           RangeBlock(rangeM: bike.rangeM)
         }
+        BikePlace(bike: bike, street: controller.streets.street(for: bike))
         HStack {
           if let walked {
-            Text("\(Units.metres(walked.walkingM)) on foot")
+            TimelineView(.everyMinute) { context in
+              Text(
+                "\(Units.metres(walked.walkingM)) on foot, there by \(context.date.addingTimeInterval(walked.walkingS), format: .dateTime.hour().minute())"
+              )
+            }
           } else {
             Text("In a straight line")
           }
@@ -187,6 +192,30 @@ struct FeaturedSection: View {
       }
       BikeActions(bike: bike, controller: controller)
     }
+    .task(id: bike.id) { await controller.streets.lookUp(bike) }
+  }
+}
+
+/// The street and number of a bike, for example "Townsend Street, bike
+/// 2025070027". The number is the one in the bike's rental link.
+struct BikePlace: View {
+  let bike: Bike
+  let street: String?
+
+  var body: some View {
+    let parts = [street, bike.number.map { "bike \($0)" }].compactMap(\.self)
+    if !parts.isEmpty {
+      Text(parts.joined(separator: ", ").capitalizedFirst)
+        .font(.subheadline.weight(.medium))
+        .lineLimit(1)
+    }
+  }
+}
+
+extension String {
+  /// The string with its first character in upper case.
+  var capitalizedFirst: String {
+    prefix(1).uppercased() + dropFirst()
   }
 }
 
@@ -237,6 +266,11 @@ struct TargetSection: View {
   let controller: CommuteController
 
   var body: some View {
+    content
+      .task(id: target.bike.id) { await controller.streets.lookUp(target.bike) }
+  }
+
+  private var content: some View {
     VStack(alignment: .leading, spacing: 16) {
       VStack(alignment: .leading, spacing: 2) {
         Label(
@@ -255,6 +289,7 @@ struct TargetSection: View {
           Spacer()
           RangeBlock(rangeM: target.bike.rangeM)
         }
+        BikePlace(bike: target.bike, street: controller.streets.street(for: target.bike))
       }
       HStack(spacing: 10) {
         if Handoff.rentalURL(for: target.bike) != nil {
@@ -269,7 +304,7 @@ struct TargetSection: View {
           .foregroundStyle(Theme.onAccent)
         }
         Button {
-          Handoff.walk(to: target.bike)
+          controller.directions(to: target.bike)
         } label: {
           Label("Walk", systemImage: "figure.walk")
             .frame(maxWidth: .infinity)

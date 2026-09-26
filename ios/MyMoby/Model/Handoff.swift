@@ -4,17 +4,33 @@ import UIKit
 
 /// Hands a bike over to Apple Maps or to the MOBY app.
 enum Handoff {
-  /// Opens Apple Maps with walking directions to the bike.
+  /// Opens Apple Maps with walking directions to the bike. The pin shows the
+  /// bike's number and street, and links to the bike in the MOBY app.
   @MainActor
-  static func walk(to bike: Bike) {
-    walk(to: bike.coordinate)
+  static func walk(to bike: Bike, street: String?) {
+    let item = MKMapItem(placemark: MKPlacemark(coordinate: bike.coordinate.clLocation))
+    item.name = pinName(number: bike.number, street: street)
+    item.url = rentalURL(for: bike)
+    open(item)
   }
 
   /// Opens Apple Maps with walking directions to a position.
   @MainActor
   static func walk(to coordinate: Coordinate) {
     let item = MKMapItem(placemark: MKPlacemark(coordinate: coordinate.clLocation))
-    item.name = "MOBY bike"
+    item.name = pinName(number: nil, street: nil)
+    open(item)
+  }
+
+  /// Returns the name of the pin in Maps, for example "MOBY 2025070027,
+  /// Townsend Street".
+  static func pinName(number: String?, street: String?) -> String {
+    [number.map { "MOBY \($0)" } ?? "MOBY bike", street].compactMap(\.self).joined(
+      separator: ", ")
+  }
+
+  @MainActor
+  private static func open(_ item: MKMapItem) {
     item.openInMaps(launchOptions: [
       MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeWalking
     ])
