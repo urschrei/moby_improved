@@ -32,7 +32,8 @@ struct NearbyView: View {
       route: route,
       camera: $camera,
       selectedID: $selectedID,
-      scope: mapScope
+      scope: mapScope,
+      report: controller.report
     )
     .safeAreaInset(edge: .top) {
       MapControls(

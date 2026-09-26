@@ -23,6 +23,7 @@ struct BikeSheet: View {
     ScrollView {
       VStack(alignment: .leading, spacing: 24) {
         VStack(alignment: .leading, spacing: 0) {
+          ReportConfirmation(reports: controller.reports)
           StaleNotice(feed: store.feed)
           mainSection
         }
@@ -35,6 +36,9 @@ struct BikeSheet: View {
                 NextBikeRow(walked: walked)
               }
               .buttonStyle(.plain)
+              .contextMenu {
+                ReportMenuItems(bike: walked.bike, report: controller.report)
+              }
               if walked.id != otherBikes.last?.id {
                 Divider()
               }
@@ -179,7 +183,11 @@ struct FeaturedSection: View {
           Spacer()
           RangeBlock(rangeM: bike.rangeM)
         }
-        BikePlace(bike: bike, street: controller.streets.street(for: bike))
+        HStack {
+          BikePlace(bike: bike, street: controller.streets.street(for: bike))
+          Spacer()
+          ReportButton(bike: bike, controller: controller)
+        }
         HStack {
           if let walked {
             TimelineView(.everyMinute) { context in
@@ -289,7 +297,11 @@ struct TargetSection: View {
           Spacer()
           RangeBlock(rangeM: target.bike.rangeM)
         }
-        BikePlace(bike: target.bike, street: controller.streets.street(for: target.bike))
+        HStack {
+          BikePlace(bike: target.bike, street: controller.streets.street(for: target.bike))
+          Spacer()
+          ReportButton(bike: target.bike, controller: controller)
+        }
       }
       HStack(spacing: 10) {
         if Handoff.rentalURL(for: target.bike) != nil {

@@ -65,7 +65,8 @@ final class CommuteController {
   }
 
   /// Records that `bike` could not be rented, with the rider's position.
-  func report(_ kind: BikeReport.Kind, reason: BikeReport.Reason? = nil, bike: Bike) {
+  func report(_ kind: BikeReport.Kind, reason: BikeReport.Reason?, bike: Bike) {
+    UINotificationFeedbackGenerator().notificationOccurred(.success)
     reports.report(
       kind, reason: reason, bike: bike, rider: location.coordinate,
       riderAccuracyM: location.accuracyM, feed: store.feed)

@@ -15,6 +15,8 @@ struct BikeMap: View {
   @Binding var selectedID: String?
   /// The scope that connects the map to its controls in the overlay.
   let scope: Namespace.ID
+  /// Records a report about a bike.
+  let report: (BikeReport.Kind, BikeReport.Reason?, Bike) -> Void
   /// The distance of the camera from the map, in metres.
   @State private var cameraDistance: Double = .infinity
   /// The length on the ground of one point on the screen, or 0 before the
@@ -56,6 +58,13 @@ struct BikeMap: View {
           coordinate: group.leader.coordinate.clLocation
         ) {
           BikeDot(count: group.count, isSelected: group.contains(selectedID))
+            .contextMenu {
+              if group.count == 1 {
+                ReportMenuItems(bike: group.leader, report: report)
+              }
+            }
+            // The map uses the system blue; the menu uses the accent.
+            .tint(Theme.accent)
         }
         .annotationTitles(.hidden)
         .tag(group.id)
@@ -75,7 +84,15 @@ struct BikeMap: View {
             rangeM: group.count == 1 ? group.leader.bike.rangeM : nil,
             count: group.count,
             isFeatured: group.contains(featuredID),
-            isSelected: group.contains(selectedID))
+            isSelected: group.contains(selectedID)
+          )
+          .contextMenu {
+            if group.count == 1 {
+              ReportMenuItems(bike: group.leader.bike, report: report)
+            }
+          }
+          // The map uses the system blue; the menu uses the accent.
+          .tint(Theme.accent)
         }
         .annotationTitles(.hidden)
         .tag(group.id)
@@ -86,6 +103,9 @@ struct BikeMap: View {
           "Your bike", coordinate: target.bike.coordinate.clLocation, anchor: .bottom
         ) {
           TargetMarker()
+            .contextMenu { ReportMenuItems(bike: target.bike, report: report) }
+            // The map uses the system blue; the menu uses the accent.
+            .tint(Theme.accent)
         }
         .annotationTitles(.hidden)
         .tag(target.bike.id)
