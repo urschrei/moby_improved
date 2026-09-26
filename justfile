@@ -41,9 +41,13 @@ app: ffi project
         -destination 'generic/platform=iOS Simulator' \
         -derivedDataPath ios/build ARCHS=arm64 build
 
+# Draw the app icon into the asset catalog.
+icon:
+    swift ios/Icon/MakeIcon.swift ios/MyMoby/Assets.xcassets/AppIcon.appiconset
+
 # Format the Swift sources.
 swift-fmt:
-    xcrun swift-format format -i -r ios/MyMoby ios/MobyKit/Tests ios/MobyKit/Package.swift ios/MobyKit/Sources/MobyKit/Extensions.swift ios/Shared ios/MyMobyWidgets
+    xcrun swift-format format -i -r ios/MyMoby ios/MobyKit/Tests ios/MobyKit/Package.swift ios/MobyKit/Sources/MobyKit/Extensions.swift ios/Shared ios/MyMobyWidgets ios/Icon
 
 # Build a Release copy and install it on the named iPhone, by default the
 # one in MOBY_DEVICE.
