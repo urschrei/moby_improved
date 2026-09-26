@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::num::NonZeroUsize;
 
 use hegel::TestCase;
 use hegel::generators as gs;
@@ -35,6 +36,10 @@ fn candidate(index: usize, straight_line_m: f64) -> Candidate {
         straight_line_m,
         ios_rental_uri: None,
     }
+}
+
+fn nz(k: usize) -> NonZeroUsize {
+    NonZeroUsize::new(k).unwrap()
 }
 
 fn walk(distance_m: f64) -> Route {
@@ -106,7 +111,7 @@ fn distances(routes: impl IntoIterator<Item = Route>) -> Vec<u64> {
 #[hegel::test]
 fn search_finds_the_k_shortest_walks(tc: TestCase) {
     let world = draw_world(&tc);
-    let k = tc.draw(gs::integers::<usize>().min_value(1).max_value(6));
+    let k = NonZeroUsize::new(tc.draw(gs::integers::<usize>().min_value(1).max_value(6))).unwrap();
     let mut search = WalkingSearch::new(
         ORIGIN,
         world.candidates.clone().into_iter(),
@@ -117,7 +122,7 @@ fn search_finds_the_k_shortest_walks(tc: TestCase) {
     drive(&tc, &mut search, &world.routes, &HashSet::new());
 
     let mut expected = distances(world.routes.values().copied());
-    expected.truncate(k);
+    expected.truncate(k.get());
     assert_eq!(
         distances(search.results().iter().map(|ranked| ranked.route)),
         expected
@@ -127,7 +132,7 @@ fn search_finds_the_k_shortest_walks(tc: TestCase) {
 #[hegel::test]
 fn search_is_complete_when_the_driver_stops(tc: TestCase) {
     let world = draw_world(&tc);
-    let k = tc.draw(gs::integers::<usize>().min_value(1).max_value(6));
+    let k = NonZeroUsize::new(tc.draw(gs::integers::<usize>().min_value(1).max_value(6))).unwrap();
     let max_requests = tc.draw(gs::integers::<usize>().max_value(40));
     let mut search = WalkingSearch::new(
         ORIGIN,
@@ -144,7 +149,7 @@ fn search_is_complete_when_the_driver_stops(tc: TestCase) {
 #[hegel::test]
 fn search_requests_each_vehicle_once_within_the_budget(tc: TestCase) {
     let world = draw_world(&tc);
-    let k = tc.draw(gs::integers::<usize>().min_value(1).max_value(6));
+    let k = NonZeroUsize::new(tc.draw(gs::integers::<usize>().min_value(1).max_value(6))).unwrap();
     let max_requests = tc.draw(gs::integers::<usize>().max_value(40));
     let mut search = WalkingSearch::new(
         ORIGIN,
@@ -164,7 +169,7 @@ fn search_requests_each_vehicle_once_within_the_budget(tc: TestCase) {
 #[hegel::test]
 fn search_returns_k_results_when_there_are_k_candidates(tc: TestCase) {
     let world = draw_world(&tc);
-    let k = tc.draw(gs::integers::<usize>().min_value(1).max_value(6));
+    let k = NonZeroUsize::new(tc.draw(gs::integers::<usize>().min_value(1).max_value(6))).unwrap();
     let count = world.candidates.len();
     let mut search = WalkingSearch::new(
         ORIGIN,
@@ -175,7 +180,7 @@ fn search_returns_k_results_when_there_are_k_candidates(tc: TestCase) {
     );
     drive(&tc, &mut search, &world.routes, &HashSet::new());
 
-    assert_eq!(search.results().len(), k.min(count));
+    assert_eq!(search.results().len(), k.get().min(count));
 }
 
 #[hegel::test]
@@ -190,7 +195,7 @@ fn failed_routes_are_estimated(tc: TestCase) {
     let mut search = WalkingSearch::new(
         ORIGIN,
         world.candidates.into_iter(),
-        3,
+        nz(3),
         usize::MAX,
         &WalkCache::default(),
     );
@@ -207,7 +212,7 @@ fn failed_routes_are_estimated(tc: TestCase) {
 #[hegel::test]
 fn repeated_search_from_the_same_origin_uses_the_cache(tc: TestCase) {
     let world = draw_world(&tc);
-    let k = tc.draw(gs::integers::<usize>().min_value(1).max_value(6));
+    let k = NonZeroUsize::new(tc.draw(gs::integers::<usize>().min_value(1).max_value(6))).unwrap();
     let mut cache = WalkCache::default();
     let mut first = WalkingSearch::new(
         ORIGIN,
@@ -237,7 +242,7 @@ fn search_stops_when_no_candidate_can_be_nearer() {
     let mut search = WalkingSearch::new(
         ORIGIN,
         candidates.into_iter(),
-        3,
+        nz(3),
         usize::MAX,
         &WalkCache::default(),
     );
@@ -268,7 +273,7 @@ fn a_long_detour_makes_the_search_continue() {
     let mut search = WalkingSearch::new(
         ORIGIN,
         candidates.into_iter(),
-        1,
+        nz(1),
         usize::MAX,
         &WalkCache::default(),
     );
@@ -290,7 +295,7 @@ fn cache_misses_when_the_origin_moves() {
     let mut search = WalkingSearch::new(
         ORIGIN,
         candidates.clone().into_iter(),
-        1,
+        nz(1),
         usize::MAX,
         &cache,
     );
@@ -299,7 +304,7 @@ fn cache_misses_when_the_origin_moves() {
     cache.record(&search);
 
     let moved = Position::new(ORIGIN.lat + 0.001, ORIGIN.lon);
-    let mut search = WalkingSearch::new(moved, candidates.into_iter(), 1, usize::MAX, &cache);
+    let mut search = WalkingSearch::new(moved, candidates.into_iter(), nz(1), usize::MAX, &cache);
 
     assert!(search.next_request().is_some());
 }
@@ -310,7 +315,7 @@ fn cache_removes_routes_that_searches_do_not_use() {
     let mut search = WalkingSearch::new(
         ORIGIN,
         vec![candidate(0, 100.0)].into_iter(),
-        1,
+        nz(1),
         usize::MAX,
         &cache,
     );
@@ -319,7 +324,7 @@ fn cache_removes_routes_that_searches_do_not_use() {
     cache.record(&search);
     assert_eq!(cache.len(), 1);
 
-    let empty = WalkingSearch::new(ORIGIN, Vec::new().into_iter(), 1, usize::MAX, &cache);
+    let empty = WalkingSearch::new(ORIGIN, Vec::new().into_iter(), nz(1), usize::MAX, &cache);
     for _ in 0..WalkCache::MAX_IDLE_SEARCHES {
         cache.record(&empty);
     }

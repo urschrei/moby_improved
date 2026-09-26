@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::num::NonZeroUsize;
 
 use crate::Candidate;
 use crate::Position;
@@ -19,7 +20,7 @@ use crate::Position;
 #[derive(Clone, Debug)]
 pub struct WalkingSearch<S> {
     origin: Position,
-    k: usize,
+    k: NonZeroUsize,
     max_requests: usize,
     source: S,
     is_exhausted: bool,
@@ -85,7 +86,7 @@ where
     pub fn new(
         origin: Position,
         source: S,
-        k: usize,
+        k: NonZeroUsize,
         max_requests: usize,
         cache: &WalkCache,
     ) -> Self {
@@ -169,7 +170,7 @@ where
             })
             .collect();
         ranked.sort_by(|a, b| a.route.distance_m.total_cmp(&b.route.distance_m));
-        ranked.truncate(self.k);
+        ranked.truncate(self.k.get());
         ranked
     }
 
@@ -208,10 +209,9 @@ where
 
         let bound_m = self.candidates[index].straight_line_m;
         let settled = self.settled_distances();
-        let is_useful = if settled.len() >= self.k {
-            settled[self.k - 1] > bound_m
-        } else {
-            settled.len() + self.in_flight() < self.k
+        let is_useful = match settled.get(self.k.get() - 1) {
+            Some(&kth_m) => kth_m > bound_m,
+            None => settled.len() + self.in_flight() < self.k.get(),
         };
         is_useful.then_some(index)
     }
@@ -237,7 +237,7 @@ where
     /// more than `bound_m`.
     fn is_past_bound(&self, bound_m: f64) -> bool {
         self.settled_distances()
-            .get(self.k.wrapping_sub(1))
+            .get(self.k.get() - 1)
             .is_some_and(|&kth_m| kth_m <= bound_m)
     }
 

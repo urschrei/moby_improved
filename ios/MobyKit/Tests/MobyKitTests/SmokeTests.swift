@@ -72,3 +72,12 @@ let spire = Coordinate(lat: 53.349805, lon: -6.26031)
     rentalUri: "https://moby-move.app.link/")
   #expect(noNumber.number == nil)
 }
+
+@Test func walkerWithNoBikesToFindIsComplete() throws {
+  let feed = try Feed.parse(body: fixture("vehicle_status"))
+  let walker = Walker()
+  walker.start(origin: spire, feed: feed, minRangeM: 10_000, k: 0, maxRequests: 20)
+  #expect(walker.nextRequest() == nil)
+  #expect(walker.isComplete())
+  #expect(walker.results().isEmpty)
+}

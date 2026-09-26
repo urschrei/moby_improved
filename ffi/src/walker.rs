@@ -1,3 +1,4 @@
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
@@ -46,7 +47,8 @@ impl Walker {
     /// the bikes in `feed` with at least `min_range_m` of range.
     ///
     /// The search takes bikes from the feed's index only when it needs them.
-    /// It replaces a search that is not finished.
+    /// It replaces a search that is not finished. With `k` zero, the walker is
+    /// complete at once and has no results.
     pub fn start(
         &self,
         origin: Coordinate,
@@ -56,14 +58,17 @@ impl Walker {
         max_requests: u32,
     ) {
         let mut state = self.lock();
-        let search = WalkingSearch::new(
-            origin.into(),
-            feed.nearest(origin, min_range_m),
-            k as usize,
-            max_requests as usize,
-            &state.cache,
-        );
-        state.search = Some(search);
+        // With `k` zero there is nothing to find: the walker is complete and
+        // has no results.
+        state.search = NonZeroUsize::new(k as usize).map(|k| {
+            WalkingSearch::new(
+                origin.into(),
+                feed.nearest(origin, min_range_m),
+                k,
+                max_requests as usize,
+                &state.cache,
+            )
+        });
     }
 
     /// Returns the next bike to route, or `None` if no request is useful now.
