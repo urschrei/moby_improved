@@ -54,8 +54,7 @@ struct NearbyView: View {
             }
           } else {
             Button("Watch in the background", systemImage: "eye") {
-              controller.watch.start(
-                state: .init(mode: .watching, bikeCount: store.bikes.count, updated: .now))
+              controller.startWatching()
             }
           }
         }
