@@ -25,8 +25,8 @@ pub struct WalkingSearch<S> {
     max_requests: usize,
     source: Fuse<S>,
     cached: CachedRoutes,
-    candidates: Vec<Candidate>,
-    slots: Vec<Slot>,
+    /// The candidates taken from the source, in the order taken.
+    entries: Vec<Entry>,
     next: usize,
     requests: usize,
 }
@@ -96,8 +96,7 @@ where
             max_requests,
             source: source.fuse(),
             cached: cache.routes_from(origin),
-            candidates: Vec::new(),
-            slots: Vec::new(),
+            entries: Vec::new(),
             next: 0,
             requests: 0,
         }
@@ -111,23 +110,23 @@ where
     /// [`WalkingSearch::is_complete`] to find out.
     pub fn next_request(&mut self) -> Option<Candidate> {
         let index = self.peek()?;
-        self.slots[index] = Slot::InFlight;
+        self.entries[index].slot = Slot::InFlight;
         self.requests += 1;
         self.next = index + 1;
-        Some(self.candidates[index].clone())
+        Some(self.entries[index].candidate.clone())
     }
 
     /// Records the walking route to a vehicle.
     pub fn report_route(&mut self, vehicle_id: &str, route: Route) {
         if let Some(index) = self.in_flight_index(vehicle_id) {
-            self.slots[index] = Slot::Walked(route);
+            self.entries[index].slot = Slot::Walked(route);
         }
     }
 
     /// Records that the router could not find a route to a vehicle.
     pub fn report_failure(&mut self, vehicle_id: &str) {
         if let Some(index) = self.in_flight_index(vehicle_id) {
-            self.slots[index] = Slot::Failed;
+            self.entries[index].slot = Slot::Failed;
         }
     }
 
@@ -151,21 +150,15 @@ where
     #[must_use]
     pub fn results(&self) -> Vec<RankedVehicle> {
         let mut ranked: Vec<RankedVehicle> = self
-            .candidates
+            .entries
             .iter()
-            .zip(&self.slots)
-            .filter_map(|(candidate, slot)| match slot {
-                Slot::Walked(route) => Some(RankedVehicle {
-                    candidate: candidate.clone(),
-                    route: *route,
-                    is_estimate: false,
-                }),
-                Slot::Failed => Some(RankedVehicle {
-                    candidate: candidate.clone(),
-                    route: Route::estimate(candidate.straight_line_m),
-                    is_estimate: true,
-                }),
-                Slot::Unrouted | Slot::InFlight => None,
+            .filter_map(|entry| {
+                let (route, is_estimate) = entry.settled_route()?;
+                Some(RankedVehicle {
+                    candidate: entry.candidate.clone(),
+                    route,
+                    is_estimate,
+                })
             })
             .collect();
         ranked.sort_by(|a, b| a.route.distance_m.total_cmp(&b.route.distance_m));
@@ -183,7 +176,7 @@ where
     /// source.
     #[must_use]
     pub fn candidates_taken(&self) -> usize {
-        self.candidates.len()
+        self.entries.len()
     }
 
     /// Returns the index of the next candidate to route, if a request is
@@ -193,8 +186,8 @@ where
             return None;
         }
         let index = loop {
-            if let Some(index) =
-                (self.next..self.slots.len()).find(|&index| self.slots[index].is_unrouted())
+            if let Some(index) = (self.next..self.entries.len())
+                .find(|&index| self.entries[index].slot.is_unrouted())
             {
                 break index;
             }
@@ -206,7 +199,7 @@ where
             }
         };
 
-        let bound_m = self.candidates[index].straight_line_m;
+        let bound_m = self.entries[index].candidate.straight_line_m;
         let settled = self.settled_distances();
         let is_useful = match settled.get(self.k.get() - 1) {
             Some(&kth_m) => kth_m > bound_m,
@@ -221,11 +214,14 @@ where
         // The cache reuses a route anywhere in a grid cell, so a cached route
         // can be shorter than the straight line from this origin. The stop
         // rule needs every walk to be at least the straight line.
-        self.slots.push(match self.cached.get(&candidate) {
+        let slot = match self.cached.get(&candidate) {
             Some(route) => Slot::Walked(route.at_least(candidate.straight_line_m)),
             None => Slot::Unrouted,
+        };
+        self.entries.push(Entry {
+            candidate: candidate.clone(),
+            slot,
         });
-        self.candidates.push(candidate.clone());
         Some(candidate)
     }
 
@@ -239,28 +235,25 @@ where
 
     fn settled_distances(&self) -> Vec<f64> {
         let mut distances: Vec<f64> = self
-            .candidates
+            .entries
             .iter()
-            .zip(&self.slots)
-            .filter_map(|(candidate, slot)| match slot {
-                Slot::Walked(route) => Some(route.distance_m),
-                Slot::Failed => Some(Route::estimate(candidate.straight_line_m).distance_m),
-                Slot::Unrouted | Slot::InFlight => None,
-            })
+            .filter_map(|entry| entry.settled_route().map(|(route, _)| route.distance_m))
             .collect();
         distances.sort_by(f64::total_cmp);
         distances
     }
 
     fn in_flight(&self) -> usize {
-        self.slots.iter().filter(|slot| slot.is_in_flight()).count()
+        self.entries
+            .iter()
+            .filter(|entry| entry.slot.is_in_flight())
+            .count()
     }
 
     fn in_flight_index(&self, vehicle_id: &str) -> Option<usize> {
-        self.candidates
+        self.entries
             .iter()
-            .zip(&self.slots)
-            .position(|(candidate, slot)| candidate.vehicle_id == vehicle_id && slot.is_in_flight())
+            .position(|entry| entry.candidate.vehicle_id == vehicle_id && entry.slot.is_in_flight())
     }
 }
 
@@ -313,13 +306,13 @@ impl WalkCache {
     /// Estimated routes are not stored.
     pub fn record<S>(&mut self, search: &WalkingSearch<S>) {
         self.generation += 1;
-        for (candidate, slot) in search.candidates.iter().zip(&search.slots) {
-            if let Slot::Walked(route) = slot {
-                let key = self.key(search.origin, candidate);
+        for entry in &search.entries {
+            if let Slot::Walked(route) = entry.slot {
+                let key = self.key(search.origin, &entry.candidate);
                 self.entries.insert(
                     key,
                     CacheEntry {
-                        route: *route,
+                        route,
                         generation: self.generation,
                     },
                 );
@@ -368,6 +361,25 @@ impl Default for WalkCache {
     /// A cache with 25 m origin cells and 10 m vehicle cells.
     fn default() -> Self {
         Self::new(25.0, 10.0)
+    }
+}
+
+/// A candidate that a search took, and the state of its route.
+#[derive(Clone, Debug)]
+struct Entry {
+    candidate: Candidate,
+    slot: Slot,
+}
+
+impl Entry {
+    /// Returns the route, and `true` if it is an estimate, once the route is
+    /// known.
+    fn settled_route(&self) -> Option<(Route, bool)> {
+        match self.slot {
+            Slot::Walked(route) => Some((route, false)),
+            Slot::Failed => Some((Route::estimate(self.candidate.straight_line_m), true)),
+            Slot::Unrouted | Slot::InFlight => None,
+        }
     }
 }
 
