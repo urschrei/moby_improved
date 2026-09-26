@@ -9,7 +9,8 @@ The logic is in a Rust crate (`core`), exposed to a SwiftUI app through UniFFI (
 - Available bikes with at least a minimum range, ranked by MapKit walking time from the current position or a saved place (home, crèche and two workplaces).
 - A map with the nearest bikes, the walking route to a selected bike, and parking bays (the geofencing zones where a ride can end).
 - Faster refreshes in commute windows, and a warning when the feed is more than 10 minutes old.
-- Background watching with a Live Activity: after **Walk there**, the app checks the chosen bike on each refresh. If another rider rents it, the app picks the next nearest bike and sends a notification that opens Maps at it.
+- Background watching with a Live Activity: after **Walk**, the app checks the chosen bike on each refresh. If another rider rents it, the app picks the next nearest bike and sends a notification that opens Maps at it.
+- A **Walk** button on the Live Activity, which chooses the bike it shows and opens Maps. It opens MyMoby first, because a Live Activity link always opens its own app.
 
 ## Requirements
 
@@ -61,7 +62,7 @@ The app watches in the background only if it starts in the foreground. A Shortcu
 
 In a commute window, the app starts watching when it opens. It stops at the end of the window unless you are walking to a bike.
 
-### If Open in MOBY goes to the App Store
+### If Unlock goes to the App Store
 
 The rental links are Branch universal links on `moby-move.app.link`. If iOS has recorded a choice to open that domain in Safari, the link goes to the App Store instead of the MOBY app. To open the domain in the MOBY app again:
 
@@ -90,7 +91,7 @@ xcrun simctl location booted set 53.34375,-6.24690
 xcrun simctl launch booted ie.urschrei.mymoby -replay
 ```
 
-Choose the nearest bike and tap **Walk there**. On the next refresh the app replaces it with another bike.
+Tap **Walk**. On the next refresh the app replaces it with another bike.
 
 ## Layout
 
