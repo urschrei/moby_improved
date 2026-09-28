@@ -2,10 +2,12 @@
 
 use moby_core::gbfs::FeedName;
 use moby_core::gbfs::FormFactor;
+use moby_core::gbfs::GeofencingZones;
 use moby_core::gbfs::Manifest;
 use moby_core::gbfs::Propulsion;
 use moby_core::gbfs::VehicleStatus;
 use moby_core::gbfs::VehicleTypes;
+use moby_core::gbfs::zone_hash;
 
 fn fixture(name: &str) -> Vec<u8> {
     let path = format!("{}/tests/fixtures/{name}.json", env!("CARGO_MANIFEST_DIR"));
@@ -135,4 +137,60 @@ fn vehicle_types_identify_the_e_bikes() {
         feed.data.get("3646").unwrap().propulsion_type,
         Propulsion::Human
     );
+}
+
+#[test]
+fn zones_have_the_hashes_that_the_collector_records() {
+    // The moby-collector hashes of the first two zones of the feed of 27
+    // September 2026, which are the same zones as in the fixture.
+    let feed = GeofencingZones::from_slice(&fixture("geofencing_zones")).unwrap();
+    let hashes: Vec<&str> = feed
+        .data
+        .geofencing_zones
+        .features
+        .iter()
+        .map(|zone| zone.hash.as_str())
+        .collect();
+
+    assert_eq!(
+        hashes[..2],
+        [
+            "30b522cc6e5091aeaa19275e0466b1fcf8f29fd7227067cd419a3df499437537",
+            "f672356c2566a4da29ebb74f438ebc2ff29e2bfe509938741737f2f38affd0c3",
+        ]
+    );
+    let unique: std::collections::HashSet<&str> = hashes.iter().copied().collect();
+    assert_eq!(unique.len(), hashes.len());
+}
+
+#[test]
+fn zone_hash_does_not_depend_on_the_layout_of_the_body() {
+    let compact: serde_json::Value = serde_json::from_str(
+        r#"{"type":"Feature","properties":{"rules":[]},"geometry":{"type":"MultiPolygon","coordinates":[]}}"#,
+    )
+    .unwrap();
+    let spaced: serde_json::Value = serde_json::from_str(
+        r#"{ "geometry": { "coordinates": [], "type": "MultiPolygon" },
+             "properties": { "rules": [] }, "type": "Feature" }"#,
+    )
+    .unwrap();
+
+    assert_eq!(zone_hash(&compact), zone_hash(&spaced));
+}
+
+#[test]
+fn zone_hash_changes_with_the_rules() {
+    let feature = |end: bool| {
+        serde_json::json!({
+            "type": "Feature",
+            "geometry": {"type": "MultiPolygon", "coordinates": []},
+            "properties": {"rules": [{
+                "ride_start_allowed": true,
+                "ride_end_allowed": end,
+                "ride_through_allowed": true,
+            }]},
+        })
+    };
+
+    assert_ne!(zone_hash(&feature(true)), zone_hash(&feature(false)));
 }

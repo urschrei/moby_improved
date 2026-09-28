@@ -23,9 +23,12 @@ pub struct ParkingIndex {
     bays: Vec<Bay>,
 }
 
-/// A zone where a rider can end a ride.
+/// A zone where a rider can end a ride, or one polygon of it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Bay {
+    /// The hash of the zone: see [`crate::gbfs::zone_hash`]. The polygons of
+    /// one zone have the same hash.
+    pub zone_hash: String,
     /// The centroid of the zone.
     pub centroid: Position,
     /// The exterior ring of the zone, counter-clockwise.
@@ -52,7 +55,7 @@ impl ParkingIndex {
     /// skipped.
     #[must_use]
     pub fn new(zones: &GeofencingZones, vehicle_type_id: &str) -> Self {
-        let polygons: Vec<Polygon> = zones
+        let polygons: Vec<(&str, Polygon)> = zones
             .geofencing_zones
             .features
             .iter()
@@ -61,13 +64,18 @@ impl ParkingIndex {
                     .rule_for(vehicle_type_id)
                     .is_some_and(|rule| rule.ride_end_allowed)
             })
-            .flat_map(|zone| zone.geometry.coordinates.iter())
-            .filter_map(|rings| polygon(rings))
+            .flat_map(|zone| {
+                zone.geometry
+                    .coordinates
+                    .iter()
+                    .map(|rings| (zone.hash.as_str(), rings))
+            })
+            .filter_map(|(hash, rings)| Some((hash, polygon(rings)?)))
             .collect();
 
         let mut bays = Vec::new();
         let mut leaves = Vec::new();
-        for polygon in polygons {
+        for (zone_hash, polygon) in polygons {
             let Some(centroid) = polygon.centroid() else {
                 continue;
             };
@@ -76,6 +84,7 @@ impl ParkingIndex {
             };
             leaves.push(GeomWithData::new(geodetic, bays.len()));
             bays.push(Bay {
+                zone_hash: zone_hash.to_owned(),
                 centroid: Position::new(centroid.y(), centroid.x()),
                 outline: polygon
                     .exterior()

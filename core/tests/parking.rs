@@ -81,6 +81,22 @@ fn indexes_the_zones_where_an_e_bike_ride_can_end() {
 }
 
 #[test]
+fn each_bay_has_the_hash_of_its_zone() {
+    let zones: std::collections::HashSet<&str> = ZONES
+        .geofencing_zones
+        .features
+        .iter()
+        .map(|zone| zone.hash.as_str())
+        .collect();
+
+    assert!(
+        all_bays()
+            .iter()
+            .all(|bay| zones.contains(bay.zone_hash.as_str()))
+    );
+}
+
+#[test]
 fn a_point_inside_a_bay_is_at_distance_zero() {
     let bay = &all_bays()[0];
 

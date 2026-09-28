@@ -21,7 +21,10 @@ pub struct ZoneCollection {
 
 /// One zone: a GeoJSON feature with a multipolygon geometry.
 #[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(try_from = "serde_json::Value")]
 pub struct Zone {
+    /// The identifier of the zone: see [`zone_hash`].
+    pub hash: String,
     /// The area of the zone.
     pub geometry: ZoneGeometry,
     /// The rules of the zone.
@@ -66,6 +69,39 @@ impl GeofencingZones {
     pub fn from_slice(body: &[u8]) -> Result<Envelope<Self>, crate::Error> {
         Envelope::from_slice("geofencing_zones", body)
     }
+}
+
+/// Returns the identifier of a zone: the blake3 hash, in hexadecimal, of its
+/// GeoJSON feature as `serde_json` writes it (keys in order, no spaces).
+///
+/// The feed gives zones no identifier. A zone whose geometry or rules change
+/// gets a new hash.
+#[must_use]
+pub fn zone_hash(feature: &serde_json::Value) -> String {
+    blake3::hash(feature.to_string().as_bytes())
+        .to_hex()
+        .to_string()
+}
+
+impl TryFrom<serde_json::Value> for Zone {
+    type Error = serde_json::Error;
+
+    fn try_from(feature: serde_json::Value) -> Result<Self, Self::Error> {
+        let hash = zone_hash(&feature);
+        let fields: ZoneFields = serde_json::from_value(feature)?;
+        Ok(Self {
+            hash,
+            geometry: fields.geometry,
+            properties: fields.properties,
+        })
+    }
+}
+
+/// The fields of a zone that the crate reads.
+#[derive(Deserialize)]
+struct ZoneFields {
+    geometry: ZoneGeometry,
+    properties: ZoneProperties,
 }
 
 impl Rule {

@@ -13,6 +13,7 @@ pub use geofencing::Zone;
 pub use geofencing::ZoneCollection;
 pub use geofencing::ZoneGeometry;
 pub use geofencing::ZoneProperties;
+pub use geofencing::zone_hash;
 pub use manifest::FeedName;
 pub use manifest::Manifest;
 pub use vehicle_status::RentalUris;
