@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/urschrei/moby_analysis/analysis/schema/forecast_parameters.schema.json",
+  "title": "MOBY availability forecast parameters",
+  "description": "The fitted queue model of the availability forecast, written by analysis/fit.py. Rates are per minute. A time bin is the local hour (0 to 23) on Monday to Friday, and the local hour plus 24 on Saturday and Sunday.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "model",
+    "fitted_at",
+    "history",
+    "timezone",
+    "mode",
+    "rules",
+    "suspect_share",
+    "min_states",
+    "arrival",
+    "departure",
+    "places",
+    "backtest"
+  ],
+  "properties": {
+    "format": {
+      "description": "The version of this format. A reader must refuse a format that it does not know.",
+      "const": 1
+    },
+    "model": {
+      "description": "The version of the model that made the parameters.",
+      "type": "string",
+      "minLength": 1
+    },
+    "fitted_at": {
+      "description": "The time of the fit, in RFC 3339 format, UTC.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "history": {
+      "description": "The data that the fit used.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end", "polls"],
+      "properties": {
+        "start": {
+          "description": "The first accepted poll, in RFC 3339 format, UTC.",
+          "type": "string",
+          "format": "date-time"
+        },
+        "end": {
+          "description": "The last accepted poll, in RFC 3339 format, UTC.",
+          "type": "string",
+          "format": "date-time"
+        },
+        "polls": {
+          "description": "The number of accepted polls.",
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "timezone": {
+      "description": "The IANA time zone of the time bins.",
+      "const": "Europe/Dublin"
+    },
+    "mode": {
+      "description": "How bikes leave a reach. pool: at the departure rate of the reach while it has at least one bike. bike: each bike at the departure rate, so n bikes leave at n times the rate.",
+      "enum": ["pool", "bike"]
+    },
+    "rules": {
+      "description": "The rules that the fit used to find rentable bikes in bays. The service must apply the same rules to the count at the origin.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vehicle_type_id",
+        "min_range_m",
+        "bay_distance_m",
+        "move_m",
+        "stale_max_min",
+        "hysteresis_polls",
+        "reach_m",
+        "detour_factor"
+      ],
+      "properties": {
+        "vehicle_type_id": {
+          "description": "The vehicle type whose rules give the parking bays.",
+          "type": "string"
+        },
+        "min_range_m": {
+          "description": "The minimum range of a rentable bike, in metres.",
+          "type": "number",
+          "minimum": 0
+        },
+        "bay_distance_m": {
+          "description": "A bike is in the nearest bay within this distance, in metres.",
+          "type": "number",
+          "minimum": 0
+        },
+        "move_m": {
+          "description": "A step longer than this between two positions of a bike in the feed is a move, in metres.",
+          "type": "number",
+          "minimum": 0
+        },
+        "stale_max_min": {
+          "description": "A bike whose stay began with a ride, or with a move that does not correct a stale position, is suspect for this time, in minutes.",
+          "type": "number",
+          "minimum": 0
+        },
+        "hysteresis_polls": {
+          "description": "A bike must be in a bay, or out of it, for this many accepted polls in sequence before the change counts.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "reach_m": {
+          "description": "The walking distance of the reach of a place, in metres.",
+          "type": "number",
+          "minimum": 0
+        },
+        "detour_factor": {
+          "description": "For a point that is not a place, the estimated walking distance to a bay is the straight-line distance times this factor.",
+          "type": "number",
+          "minimum": 1
+        }
+      }
+    },
+    "suspect_share": {
+      "description": "The probability that a suspect bike at the origin is rentable.",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "min_states": {
+      "description": "For n bikes at the origin (certain and suspect), the chain has max(min_states, 2n + 10) states: counts 0 to states - 1. Births stop at the largest count, and a count above it is put in it.",
+      "type": "integer",
+      "minimum": 2
+    },
+    "arrival": {
+      "$ref": "#/$defs/rates",
+      "description": "Arrivals of rentable bikes. The exposure is the minutes in each bin."
+    },
+    "departure": {
+      "$ref": "#/$defs/rates",
+      "description": "Departures of rentable bikes. The exposure is the minutes with at least one rentable bike in the bay (mode pool) or the bike-minutes (mode bike)."
+    },
+    "places": {
+      "description": "The reach of each place, by name.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["bays"],
+        "properties": {
+          "bays": {
+            "description": "The zone hashes of the bays within reach_m walk along the walking network.",
+            "type": "array",
+            "items": { "$ref": "#/$defs/zone_hash" },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "backtest": {
+      "description": "The scores of the model in the backtest over the history, against climatology (B2). Empty if the backtest did not run or had no pairs.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "targets",
+          "horizon",
+          "pairs",
+          "brier",
+          "reference_brier",
+          "skill",
+          "skill_low",
+          "skill_high"
+        ],
+        "properties": {
+          "targets": {
+            "description": "all, or 07:00-10:00 for target times from 07:00 to 10:00 local time.",
+            "enum": ["all", "07:00-10:00"]
+          },
+          "horizon": {
+            "enum": ["5 min", "15 min", "30 min", "60 min", "2 h", "6 h", "overnight"]
+          },
+          "pairs": { "type": "integer", "minimum": 1 },
+          "brier": { "type": "number", "minimum": 0, "maximum": 1 },
+          "reference_brier": { "type": "number", "minimum": 0, "maximum": 1 },
+          "skill": {
+            "description": "1 - brier / reference_brier.",
+            "type": ["number", "null"]
+          },
+          "skill_low": {
+            "description": "The 2.5% point of the skill in a bootstrap over days of the origin.",
+            "type": ["number", "null"]
+          },
+          "skill_high": {
+            "description": "The 97.5% point of the skill in a bootstrap over days of the origin.",
+            "type": ["number", "null"]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "zone_hash": {
+      "description": "The blake3 hash, in hexadecimal, of the GeoJSON feature of the zone, as the collector computes it.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "rates": {
+      "description": "Rates of the form factor[bay] * profile[bin]. The factor of a bay is (events + strength) / (expected + strength). In mode bike, the departure factor of a reach is the sum of the events plus n times strength, over the sum of the expected events plus n times strength, for the n bays of the reach. A bay that is not in bays has the factor 1.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile", "strength", "bays"],
+      "properties": {
+        "profile": {
+          "description": "The rate of all bays in each of the 48 time bins, per minute of exposure.",
+          "type": "array",
+          "items": { "type": "number", "minimum": 0 },
+          "minItems": 48,
+          "maxItems": 48
+        },
+        "strength": {
+          "description": "The shape and rate of the gamma prior of the factors, which has mean 1.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "bays": {
+          "description": "The events of each bay in the history, and the events that the profile gives for its exposure, by zone hash.",
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/zone_hash" },
+          "additionalProperties": {
+            "type": "array",
+            "prefixItems": [
+              { "description": "Events.", "type": "number", "minimum": 0 },
+              { "description": "Expected events.", "type": "number", "minimum": 0 }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      }
+    }
+  }
+}

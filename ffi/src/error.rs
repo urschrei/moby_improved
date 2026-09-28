@@ -20,7 +20,9 @@ pub enum MobyError {
 impl From<moby_core::Error> for MobyError {
     fn from(error: moby_core::Error) -> Self {
         match error {
-            moby_core::Error::Parse { .. } => Self::Parse(error.to_string()),
+            moby_core::Error::Parse { .. }
+            | moby_core::Error::Parameters(_)
+            | moby_core::Error::InvalidParameters(_) => Self::Parse(error.to_string()),
             moby_core::Error::MissingFeed(_) => Self::MissingFeed(error.to_string()),
         }
     }

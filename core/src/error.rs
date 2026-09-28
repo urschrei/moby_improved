@@ -13,4 +13,11 @@ pub enum Error {
     /// The manifest does not list a feed that the client needs.
     #[error("manifest does not list the {0} feed")]
     MissingFeed(&'static str),
+    /// The body is not a forecast parameter file.
+    #[error("cannot parse forecast parameters: {0}")]
+    Parameters(#[source] serde_json::Error),
+    /// The forecast parameters cannot be used: for example, their format is
+    /// not known.
+    #[error("invalid forecast parameters: {0}")]
+    InvalidParameters(String),
 }
