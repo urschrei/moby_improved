@@ -133,9 +133,9 @@ xcrun simctl launch booted ie.urschrei.mymoby -fail-first 3
 
 | Path | Contents |
 |---|---|
-| `core/` | GBFS types, candidate filtering, walking-distance search, commute schedule, target tracking, parking index |
-| `core/tests/fixtures/` | Captured feed responses |
-| `core/tests/schemas/` | Official GBFS 3.0 JSON schemas |
+| `core/` | GBFS types, candidate filtering, walking-distance search, commute schedule, target tracking, parking index with zone hashes, availability forecast (`forecast`) |
+| `core/tests/fixtures/` | Captured feed responses; in `forecast/`, synthetic parameter files and the probabilities of the Python model, from `analysis/export_fixtures.py` in `moby_analysis` |
+| `core/tests/schemas/` | Official GBFS 3.0 JSON schemas, and the schema of the forecast parameter file, copied from `moby_analysis` |
 | `ffi/` | UniFFI bindings |
 | `ios/MobyKit/` | Swift package with the XCFramework and the generated bindings |
 | `ios/MyMoby/` | SwiftUI app |
