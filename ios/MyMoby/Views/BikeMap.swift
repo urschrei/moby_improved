@@ -11,6 +11,9 @@ struct BikeMap: View {
   let target: Target?
   let bays: [ParkingBay]
   let route: MKRoute?
+  /// The saved place that the bikes are ranked from, or `nil` for the
+  /// current location.
+  let place: MapPlace?
   @Binding var camera: MapCameraPosition
   @Binding var selectedID: String?
   /// The scope that connects the map to its controls in the overlay.
@@ -36,6 +39,14 @@ struct BikeMap: View {
   var body: some View {
     Map(position: $camera, selection: $selectedID, scope: scope) {
       UserAnnotation()
+
+      // Before the bikes, so that a bike at the place stays on top.
+      if let place {
+        Annotation(place.title, coordinate: place.coordinate.clLocation) {
+          PlaceMarker(place: place)
+        }
+        .annotationTitles(.hidden)
+      }
 
       if showsBays {
         ForEach(Array(bays.enumerated()), id: \.offset) { _, bay in
@@ -151,6 +162,44 @@ struct BikeMap: View {
   private var others: [Bike] {
     let excluded = Set(ranked.map(\.id)).union([target?.bike.id].compactMap(\.self))
     return bikes.filter { !excluded.contains($0.id) }
+  }
+}
+
+/// A saved place, as the map shows it.
+struct MapPlace: Equatable {
+  let coordinate: Coordinate
+  let title: String
+  let systemImage: String
+}
+
+/// The marker for the saved place that the bikes are ranked from. It is
+/// white, so that it looks different from the bikes, the current location,
+/// and the parking bays.
+struct PlaceMarker: View {
+  let place: MapPlace
+
+  var body: some View {
+    Image(systemName: place.systemImage)
+      .font(.system(size: 15, weight: .bold))
+      .foregroundStyle(.black)
+      .frame(width: 34, height: 34)
+      .background(.white, in: Circle())
+      .overlay { Circle().strokeBorder(Color(.systemBackground), lineWidth: 2) }
+      .shadow(color: .black.opacity(0.35), radius: 3, y: 1)
+      // The name is below the marker, and does not move its centre from the
+      // place.
+      .overlay(alignment: .top) {
+        Text(place.title)
+          .font(.caption2.weight(.bold))
+          .foregroundStyle(.white)
+          .padding(.horizontal, 6)
+          .padding(.vertical, 2)
+          .background(.black.opacity(0.6), in: Capsule())
+          .fixedSize()
+          .offset(y: 38)
+      }
+      .accessibilityElement(children: .ignore)
+      .accessibilityLabel(place.title)
   }
 }
 

@@ -30,6 +30,7 @@ struct NearbyView: View {
       target: store.target,
       bays: bays,
       route: route,
+      place: mapPlace,
       camera: $camera,
       selectedID: $selectedID,
       scope: mapScope,
@@ -96,6 +97,15 @@ struct NearbyView: View {
   /// The bike with the large marker: the target, or else the nearest bike.
   private var featuredID: String? {
     store.target?.bike.id ?? store.nearest.first?.id
+  }
+
+  /// The saved place that is the origin, for the map.
+  private var mapPlace: MapPlace? {
+    guard case .place(let kind) = origin, let coordinate = originCoordinate else {
+      return nil
+    }
+    return MapPlace(
+      coordinate: coordinate, title: settings.title(for: kind), systemImage: kind.systemImage)
   }
 
   /// The parking bays nearest to the origin.
