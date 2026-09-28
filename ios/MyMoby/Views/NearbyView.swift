@@ -81,6 +81,9 @@ struct NearbyView: View {
         await controller.originMoved(to: originCoordinate)
       }
     }
+    .onChange(of: fitKey) {
+      fitCamera()
+    }
     .onChange(of: origin) {
       selectedID = nil
       store.clearBikes()
@@ -97,6 +100,48 @@ struct NearbyView: View {
   /// The bike with the large marker: the target, or else the nearest bike.
   private var featuredID: String? {
     store.target?.bike.id ?? store.nearest.first?.id
+  }
+
+  /// The values that make the map fit the origin and the nearest bike
+  /// again. The position of the rider is not one of them, so that the map
+  /// does not move while the rider walks or pans it.
+  private struct FitKey: Equatable {
+    let origin: Origin
+    let hasOrigin: Bool
+    let nearestID: String?
+  }
+
+  private var fitKey: FitKey {
+    FitKey(
+      origin: origin, hasOrigin: originCoordinate != nil, nearestID: store.nearest.first?.id)
+  }
+
+  /// Moves the map to show the origin and the nearest bike.
+  private func fitCamera() {
+    guard let origin = originCoordinate, let nearest = store.nearest.first else { return }
+    withAnimation {
+      camera = .rect(Self.rect(containing: origin, and: nearest.bike.coordinate))
+    }
+  }
+
+  /// The shortest side of the fitted area, in metres. A bike next to the
+  /// origin does not make the map zoom in further than this.
+  private static let minimumFitM = 400.0
+
+  /// Returns an area that contains `a` and `b`, with a margin for the
+  /// markers, which rise above the positions that they mark.
+  private static func rect(containing a: Coordinate, and b: Coordinate) -> MKMapRect {
+    let pointA = MKMapPoint(a.clLocation)
+    let pointB = MKMapPoint(b.clLocation)
+    let bounds = MKMapRect(
+      x: min(pointA.x, pointB.x), y: min(pointA.y, pointB.y),
+      width: abs(pointA.x - pointB.x), height: abs(pointA.y - pointB.y))
+    let margin = max(bounds.width, bounds.height) * 0.3
+    let minimum = minimumFitM * MKMapPointsPerMeterAtLatitude(a.lat)
+    let width = max(bounds.width + 2 * margin, minimum)
+    let height = max(bounds.height + 2 * margin, minimum)
+    return MKMapRect(
+      x: bounds.midX - width / 2, y: bounds.midY - height / 2, width: width, height: height)
   }
 
   /// The saved place that is the origin, for the map.
