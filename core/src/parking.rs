@@ -11,6 +11,7 @@ use rstar_geodetic::GeodeticRTree;
 
 use crate::Position;
 use crate::gbfs::GeofencingZones;
+use crate::gbfs::ZoneHash;
 
 /// The zones where a rider can end a ride, indexed for nearest-neighbour
 /// queries on the sphere.
@@ -26,9 +27,8 @@ pub struct ParkingIndex {
 /// A zone where a rider can end a ride, or one polygon of it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Bay {
-    /// The hash of the zone: see [`crate::gbfs::zone_hash`]. The polygons of
-    /// one zone have the same hash.
-    pub zone_hash: String,
+    /// The hash of the zone. The polygons of one zone have the same hash.
+    pub zone_hash: ZoneHash,
     /// The centroid of the zone.
     pub centroid: Position,
     /// The exterior ring of the zone, counter-clockwise.
@@ -55,7 +55,7 @@ impl ParkingIndex {
     /// skipped.
     #[must_use]
     pub fn new(zones: &GeofencingZones, vehicle_type_id: &str) -> Self {
-        let polygons: Vec<(&str, Polygon)> = zones
+        let polygons: Vec<(&ZoneHash, Polygon)> = zones
             .geofencing_zones
             .features
             .iter()
@@ -68,7 +68,7 @@ impl ParkingIndex {
                 zone.geometry
                     .coordinates
                     .iter()
-                    .map(|rings| (zone.hash.as_str(), rings))
+                    .map(|rings| (&zone.hash, rings))
             })
             .filter_map(|(hash, rings)| Some((hash, polygon(rings)?)))
             .collect();
@@ -84,7 +84,7 @@ impl ParkingIndex {
             };
             leaves.push(GeomWithData::new(geodetic, bays.len()));
             bays.push(Bay {
-                zone_hash: zone_hash.to_owned(),
+                zone_hash: zone_hash.clone(),
                 centroid: Position::new(centroid.y(), centroid.x()),
                 outline: polygon
                     .exterior()

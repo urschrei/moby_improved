@@ -2,7 +2,8 @@
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 #[uniffi(flat_error)]
 pub enum MobyError {
-    /// A feed body did not parse.
+    /// A feed body or a forecast parameter file did not parse, or is not
+    /// valid.
     #[error("{0}")]
     Parse(String),
     /// The manifest does not list a feed that the app needs.
@@ -22,7 +23,11 @@ impl From<moby_core::Error> for MobyError {
         match error {
             moby_core::Error::Parse { .. }
             | moby_core::Error::Parameters(_)
-            | moby_core::Error::InvalidParameters(_) => Self::Parse(error.to_string()),
+            | moby_core::Error::UnknownFormat(_)
+            | moby_core::Error::ProfileLength(_)
+            | moby_core::Error::OutOfRange { .. }
+            | moby_core::Error::UnsupportedTimeZone(_)
+            | moby_core::Error::TimeZoneDatabase(_) => Self::Parse(error.to_string()),
             moby_core::Error::MissingFeed(_) => Self::MissingFeed(error.to_string()),
         }
     }

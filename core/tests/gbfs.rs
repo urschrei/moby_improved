@@ -7,7 +7,7 @@ use moby_core::gbfs::Manifest;
 use moby_core::gbfs::Propulsion;
 use moby_core::gbfs::VehicleStatus;
 use moby_core::gbfs::VehicleTypes;
-use moby_core::gbfs::zone_hash;
+use moby_core::gbfs::ZoneHash;
 
 fn fixture(name: &str) -> Vec<u8> {
     let path = format!("{}/tests/fixtures/{name}.json", env!("CARGO_MANIFEST_DIR"));
@@ -175,7 +175,7 @@ fn zone_hash_does_not_depend_on_the_layout_of_the_body() {
     )
     .unwrap();
 
-    assert_eq!(zone_hash(&compact), zone_hash(&spaced));
+    assert_eq!(ZoneHash::of(&compact), ZoneHash::of(&spaced));
 }
 
 #[test]
@@ -192,5 +192,5 @@ fn zone_hash_changes_with_the_rules() {
         })
     };
 
-    assert_ne!(zone_hash(&feature(true)), zone_hash(&feature(false)));
+    assert_ne!(ZoneHash::of(&feature(true)), ZoneHash::of(&feature(false)));
 }

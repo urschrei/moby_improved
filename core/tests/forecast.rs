@@ -156,7 +156,7 @@ fn an_unknown_format_is_refused() {
 
     let error = Parameters::from_slice(value.to_string().as_bytes()).unwrap_err();
 
-    assert!(matches!(error, Error::InvalidParameters(_)), "{error}");
+    assert!(matches!(error, Error::UnknownFormat(2)), "{error}");
 }
 
 #[test]
@@ -167,7 +167,7 @@ fn a_profile_of_the_wrong_length_is_refused() {
 
     let error = Parameters::from_slice(value.to_string().as_bytes()).unwrap_err();
 
-    assert!(matches!(error, Error::InvalidParameters(_)), "{error}");
+    assert!(matches!(error, Error::ProfileLength(2)), "{error}");
 }
 
 #[test]
@@ -179,6 +179,57 @@ fn an_unknown_field_is_refused() {
     let error = Parameters::from_slice(value.to_string().as_bytes()).unwrap_err();
 
     assert!(matches!(error, Error::Parameters(_)), "{error}");
+}
+
+fn refused(change: impl Fn(&mut serde_json::Value)) -> Error {
+    let mut value: serde_json::Value =
+        serde_json::from_slice(&fixture("parameters_bike.json")).unwrap();
+    change(&mut value);
+    Parameters::from_slice(value.to_string().as_bytes()).unwrap_err()
+}
+
+#[test]
+fn values_out_of_range_are_refused() {
+    let share = refused(|value| value["suspect_share"] = 1.5.into());
+    let strength = refused(|value| value["departure"]["strength"] = 0.0.into());
+    let rate = refused(|value| value["arrival"]["profile"][3] = (-0.1).into());
+    let states = refused(|value| value["min_states"] = 1.into());
+
+    for (error, expected) in [
+        (share, "suspect_share"),
+        (strength, "strength"),
+        (rate, "profile"),
+        (states, "min_states"),
+    ] {
+        assert!(
+            matches!(error, Error::OutOfRange { name, .. } if name == expected),
+            "{error}"
+        );
+    }
+}
+
+#[test]
+fn another_time_zone_is_refused() {
+    let error = refused(|value| value["timezone"] = "Asia/Kolkata".into());
+
+    assert!(matches!(error, Error::UnsupportedTimeZone(_)), "{error}");
+}
+
+#[test]
+fn a_malformed_zone_hash_is_refused() {
+    let error = refused(|value| value["places"]["a"]["bays"][0] = "ABC".into());
+
+    assert!(matches!(error, Error::Parameters(_)), "{error}");
+}
+
+#[test]
+fn a_reach_with_no_bays_has_no_births_and_no_deaths() {
+    for name in ["parameters_pool.json", "parameters_bike.json"] {
+        let chain = parameters(name).reach::<&str>(&[]);
+
+        assert!(chain.birth().iter().all(|&rate| rate == 0.0), "{name}");
+        assert!(chain.death().iter().all(|&rate| rate == 0.0), "{name}");
+    }
 }
 
 fn draw_case(tc: &TestCase) -> (Chain, usize, usize, Timestamp, Timestamp) {

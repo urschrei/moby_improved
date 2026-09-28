@@ -7,6 +7,7 @@ use serde::Deserialize;
 
 use super::chain::BINS;
 use super::chain::Chain;
+use crate::gbfs::ZoneHash;
 
 /// The format of the parameter file that this crate reads.
 const FORMAT: u32 = 1;
@@ -91,7 +92,7 @@ pub struct Rules {
 #[serde(deny_unknown_fields)]
 pub struct Place {
     /// The zone hashes of the bays within the reach.
-    pub bays: Vec<String>,
+    pub bays: Vec<ZoneHash>,
 }
 
 /// The backtest score of the model for one horizon and group of targets.
@@ -122,21 +123,32 @@ impl Parameters {
     /// # Errors
     ///
     /// Returns [`crate::Error::Parameters`] if the body is not a parameter
-    /// file, and [`crate::Error::InvalidParameters`] if its format is not
-    /// known, a profile does not have [`BINS`] values, or the time zone is
-    /// not known.
+    /// file, [`crate::Error::UnknownFormat`] for a format that the crate does
+    /// not know, [`crate::Error::ProfileLength`] if a profile does not have
+    /// [`BINS`] values, [`crate::Error::OutOfRange`] for a value outside its
+    /// range, [`crate::Error::UnsupportedTimeZone`] for a time zone other
+    /// than `Europe/Dublin`, and [`crate::Error::TimeZoneDatabase`] if the
+    /// time zone database does not have it.
     pub fn from_slice(body: &[u8]) -> Result<Self, crate::Error> {
         let version: Version = serde_json::from_slice(body).map_err(crate::Error::Parameters)?;
         if version.format != FORMAT {
-            return Err(crate::Error::InvalidParameters(format!(
-                "unknown format {}",
-                version.format
-            )));
+            return Err(crate::Error::UnknownFormat(version.format));
         }
         let raw: RawParameters = serde_json::from_slice(body).map_err(crate::Error::Parameters)?;
-        let time_zone = TimeZone::get(&raw.timezone).map_err(|error| {
-            crate::Error::InvalidParameters(format!("time zone {}: {error}", raw.timezone))
-        })?;
+        // Chain::advance steps at UTC hours, which are local hours only in
+        // a time zone with whole-hour offsets.
+        if raw.timezone != TIME_ZONE {
+            return Err(crate::Error::UnsupportedTimeZone(raw.timezone));
+        }
+        let time_zone = TimeZone::get(TIME_ZONE).map_err(crate::Error::TimeZoneDatabase)?;
+        if !(0.0..=1.0).contains(&raw.suspect_share) {
+            return Err(out_of_range("suspect_share", raw.suspect_share));
+        }
+        if raw.min_states < 2 {
+            #[expect(clippy::cast_precision_loss, reason = "the value is below 2 and exact")]
+            let value = raw.min_states as f64;
+            return Err(out_of_range("min_states", value));
+        }
         Ok(Self {
             model: raw.model,
             fitted_at: raw.fitted_at,
@@ -158,7 +170,8 @@ impl Parameters {
     /// The birth rate is the sum of the arrival rates of the bays. In
     /// [`Mode::Pool`], the death rate is the sum of their departure rates; in
     /// [`Mode::Bike`], it is the hazard of the bays together. A bay that is
-    /// not in the parameters (a new zone) has the rates of all bays.
+    /// not in the parameters (a new zone) has the rates of all bays. A reach
+    /// with no bays has no births and no deaths.
     #[must_use]
     pub fn reach<S: AsRef<str>>(&self, bays: &[S]) -> Chain {
         let arrival = self.arrival.sum_of_factors(bays);
@@ -183,6 +196,9 @@ impl Parameters {
     }
 }
 
+/// The only time zone of the parameters.
+const TIME_ZONE: &str = "Europe/Dublin";
+
 /// Rates of the form factor\[bay\] * profile\[bin\], per minute of exposure.
 #[derive(Clone, Debug)]
 struct Rates {
@@ -190,16 +206,19 @@ struct Rates {
     /// The prior of the factors is a gamma distribution with mean 1, and
     /// shape and rate `strength`.
     strength: f64,
-    /// The events of each bay, and the events that the profile gives for
-    /// its exposure.
-    bays: HashMap<String, [f64; 2]>,
+    bays: HashMap<ZoneHash, Exposure>,
 }
+
+/// The events of a bay in the history, and the events that the profile
+/// gives for its exposure.
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq)]
+struct Exposure(f64, f64);
 
 impl Rates {
     /// Returns the posterior factor of one bay: (events + strength) /
     /// (expected + strength). A bay that is not known has the factor 1.
     fn factor(&self, bay: &str) -> f64 {
-        let [events, expected] = self.bays.get(bay).copied().unwrap_or([0.0, 0.0]);
+        let Exposure(events, expected) = self.exposure(bay);
         (events + self.strength) / (expected + self.strength)
     }
 
@@ -207,12 +226,16 @@ impl Rates {
         bays.iter().map(|bay| self.factor(bay.as_ref())).sum()
     }
 
-    /// Returns the posterior factor of the bays together.
+    /// Returns the posterior factor of the bays together, or 0 if there are
+    /// no bays.
     fn pooled_factor<S: AsRef<str>>(&self, bays: &[S]) -> f64 {
+        if bays.is_empty() {
+            return 0.0;
+        }
         let (events, expected) = bays
             .iter()
-            .map(|bay| self.bays.get(bay.as_ref()).copied().unwrap_or([0.0, 0.0]))
-            .fold((0.0, 0.0), |(e, x), [events, expected]| {
+            .map(|bay| self.exposure(bay.as_ref()))
+            .fold((0.0, 0.0), |(e, x), Exposure(events, expected)| {
                 (e + events, x + expected)
             });
         #[expect(
@@ -222,6 +245,10 @@ impl Rates {
         let prior = bays.len() as f64 * self.strength;
         (events + prior) / (expected + prior)
     }
+
+    fn exposure(&self, bay: &str) -> Exposure {
+        self.bays.get(bay).copied().unwrap_or_default()
+    }
 }
 
 impl TryFrom<RawRates> for Rates {
@@ -229,15 +256,37 @@ impl TryFrom<RawRates> for Rates {
 
     fn try_from(raw: RawRates) -> Result<Self, Self::Error> {
         let length = raw.profile.len();
-        let profile: [f64; BINS] = raw.profile.try_into().map_err(|_| {
-            crate::Error::InvalidParameters(format!("a profile has {length} values, not {BINS}"))
-        })?;
+        let profile: [f64; BINS] = raw
+            .profile
+            .try_into()
+            .map_err(|_| crate::Error::ProfileLength(length))?;
+        if let Some(&rate) = profile
+            .iter()
+            .find(|rate| !rate.is_finite() || **rate < 0.0)
+        {
+            return Err(out_of_range("profile", rate));
+        }
+        if !(raw.strength.is_finite() && raw.strength > 0.0) {
+            return Err(out_of_range("strength", raw.strength));
+        }
+        let invalid = raw
+            .bays
+            .values()
+            .flat_map(|&Exposure(events, expected)| [events, expected])
+            .find(|value| !value.is_finite() || *value < 0.0);
+        if let Some(value) = invalid {
+            return Err(out_of_range("bays", value));
+        }
         Ok(Self {
             profile,
             strength: raw.strength,
             bays: raw.bays,
         })
     }
+}
+
+fn out_of_range(name: &'static str, value: f64) -> crate::Error {
+    crate::Error::OutOfRange { name, value }
 }
 
 /// The format field alone, so that a file of another format is refused
@@ -271,5 +320,5 @@ struct RawParameters {
 struct RawRates {
     profile: Vec<f64>,
     strength: f64,
-    bays: HashMap<String, [f64; 2]>,
+    bays: HashMap<ZoneHash, Exposure>,
 }

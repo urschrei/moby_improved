@@ -23,7 +23,8 @@ pub const BINS: usize = 48;
 /// largest count.
 ///
 /// The chain keeps the transition matrices that it computes, so a chain
-/// that forecasts many origins is faster than a new chain for each.
+/// that forecasts many origins is faster than a new chain for each. It keeps
+/// at most [`MAX_CACHED`] of them.
 #[derive(Clone, Debug)]
 pub struct Chain {
     birth: [f64; BINS],
@@ -73,7 +74,9 @@ impl Chain {
     ///
     /// Each suspect bike is rentable with the suspect share of the
     /// parameters. The result is in the order of `targets`. A target before
-    /// the origin has the probability at the origin.
+    /// the origin has the probability at the origin. The method takes
+    /// `&mut self` only to cache transition matrices.
+    #[must_use]
     pub fn availability(
         &mut self,
         certain: usize,
@@ -100,7 +103,7 @@ impl Chain {
     /// at a time.
     ///
     /// Irish local time differs from UTC by whole hours, so UTC hours are
-    /// local hours. Each part is rounded to whole minutes, with ties to
+    /// local hours; `Parameters::from_slice` refuses other time zones. Each part is rounded to whole minutes, with ties to
     /// even, as in the Python model.
     fn advance(&mut self, mut p: Vec<f64>, start: Timestamp, end: Timestamp) -> Vec<f64> {
         let mut t = start;
@@ -123,24 +126,30 @@ impl Chain {
 
     fn step(&mut self, bin: usize, minutes: i64, states: usize) -> &Matrix {
         let (birth, death, mode) = (self.birth[bin], self.death[bin], self.mode);
+        if self.cache.len() >= MAX_CACHED && !self.cache.contains_key(&(bin, minutes, states)) {
+            self.cache.clear();
+        }
         self.cache
             .entry((bin, minutes, states))
             .or_insert_with(|| transition(birth, death, minutes, states, mode))
     }
 }
 
+/// The largest number of transition matrices that a chain keeps. A matrix of
+/// 40 states takes 12.8 kB.
+pub const MAX_CACHED: usize = 1_024;
+
 /// Returns the number of states of the chain for `count` bikes at the origin:
 /// `max(min_states, 2 * count + 10)`.
 #[must_use]
-pub fn states_for(count: usize, min_states: usize) -> usize {
+pub(crate) fn states_for(count: usize, min_states: usize) -> usize {
     min_states.max(2 * count + 10)
 }
 
 /// Returns the time bin of `t`: the local hour in `time_zone`, plus 24 on
 /// Saturday and Sunday.
-#[must_use]
-pub fn time_bin(t: Timestamp, time_zone: &TimeZone) -> usize {
-    let local = t.to_zoned(time_zone.clone());
+pub(crate) fn time_bin(t: Timestamp, time_zone: &TimeZone) -> usize {
+    let local = time_zone.to_datetime(t);
     let day_type = match local.weekday() {
         Weekday::Monday
         | Weekday::Tuesday

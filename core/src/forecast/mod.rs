@@ -11,8 +11,7 @@ mod parameters;
 
 pub use chain::BINS;
 pub use chain::Chain;
-pub use chain::states_for;
-pub use chain::time_bin;
+pub use chain::MAX_CACHED;
 pub use parameters::History;
 pub use parameters::Mode;
 pub use parameters::Parameters;
