@@ -2,18 +2,30 @@
 # no remote dependencies: it uses the XCFramework that the Rust build makes.
 version: 2
 updates:
-  - package-ecosystem: cargo
-    directory: /
+  - package-ecosystem: "cargo"
+    directory: "/"
     schedule:
-      interval: weekly
+      interval: "weekly"
     groups:
       cargo:
-        patterns: ["*"]
+        applies-to: version-updates
+        patterns:
+          - "*"
+      cargo-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
 
-  - package-ecosystem: github-actions
-    directory: /
+  - package-ecosystem: "github-actions"
+    directory: "/"
     schedule:
-      interval: weekly
+      interval: "weekly"
     groups:
       github-actions:
-        patterns: ["*"]
+        applies-to: version-updates
+        patterns:
+          - "*"
+      github-actions-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
