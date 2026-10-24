@@ -168,7 +168,7 @@ fn fixture_candidates_near_the_spire() {
     };
     let found = candidates(&feed.data.vehicles, SPIRE, filter);
 
-    assert!(!found.is_empty());
+    assert_ne!(found, []);
     assert!(found.len() < feed.data.vehicles.len());
     assert!(
         found[0].straight_line_m < 500.0,
