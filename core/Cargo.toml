@@ -22,5 +22,5 @@ blake3 = "1"
 workspace = true
 
 [dev-dependencies]
-hegeltest = "0.47.4"
-jsonschema = { version = "0.58.0", default-features = false }
+hegeltest = "0.50.3"
+jsonschema = { version = "0.60.2", default-features = false }
