@@ -9,7 +9,7 @@ The logic is in a Rust crate (`core`), exposed to a SwiftUI app through UniFFI (
 - Available bikes with at least a minimum range, ranked by MapKit walking time from the current position or a saved place (home, crèche and two workplaces).
 - A map with the nearest bikes, the walking route to a selected bike, and parking bays (the geofencing zones where a ride can end).
 - Faster refreshes in commute windows, and a warning when the feed is more than 10 minutes old.
-- For a saved place, the number of rentable bikes within 300 m walk now, and the probability of at least one there in 30 minutes, 1 hour and 2 hours, from a forecast service that collects the feed (`moby-collector`, in a private repository). The app shows a probability only at horizons where the model has done better than a forecast from the hour of the day; a place that the service does not know shows no forecast. See [The forecast](#the-forecast).
+- For a saved place, the number of rentable bikes within 300 m walk now, and the probability of at least one there in 30 minutes, 1 hour and 2 hours, from a forecast service that collects the feed (`moby-collector`, in a private repository). The app shows a probability only at horizons where the model has done better than a forecast from the hour of the day; a new or moved place has a forecast after the next nightly fit of the service. See [The forecast](#the-forecast).
 - Background watching with a Live Activity: after **Walk**, the app checks the chosen bike on each refresh. If another rider rents it, the app picks the next nearest bike and sends a notification that opens Maps at it.
 - Reports of bikes that the feed lists but that cannot be rented: ghost bikes, and bikes that need service. See [Reporting bikes](#reporting-bikes).
 - A **Walk** button on the Live Activity, which chooses the bike it shows and opens Maps. It opens MyMoby first, because a Live Activity link always opens its own app.
@@ -77,7 +77,7 @@ When the origin is a saved place, the sheet shows the forecast for that place un
 - **Now**: the rentable bikes within 300 m walk of the place at the last poll of the service. **Not confirmed** bikes are bikes that a rider returned or that MOBY moved in the last 25 minutes; the feed can show such a bike at the wrong position.
 - **+30 min**, **+1 h**, **+2 h**: the probability of at least one rentable bike within 300 m walk at that time, rounded to 5%, from 5% to 95%.
 
-The service knows a place by the name of its kind: `home`, `creche`, `work` or `secondWork`. It uses its own copy of the coordinates of each place, so a place that you move in the app keeps its old forecast until the service has the new coordinates.
+The app sends all the saved places to the service when it starts and when you add, move or remove a place. The service knows a place by the name of its kind: `home`, `creche`, `work` or `secondWork`. The nightly fit of the service finds the bays within 300 m walk of each place, so a place that you add or move shows **The forecast for this place starts after the next nightly fit** until that fit runs.
 
 ### Reporting bikes
 
