@@ -16,6 +16,11 @@ struct ForecastSection: View {
         Text("Loading the forecast")
           .foregroundStyle(.secondary)
       }
+    case .pending:
+      section {
+        Text("The forecast for this place starts after the next nightly fit.")
+          .foregroundStyle(.secondary)
+      }
     case .unavailable:
       section {
         Text("No forecast now")

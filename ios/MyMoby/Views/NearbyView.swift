@@ -68,6 +68,9 @@ struct NearbyView: View {
         route = await Handoff.route(from: origin, to: bike)
       }
     }
+    .task(id: settings.values.places) {
+      await forecasts.send(places: settings.values.places)
+    }
     // The loop continues in the background while the app runs there.
     .task(id: origin) {
       guard case .place(let kind) = origin else {

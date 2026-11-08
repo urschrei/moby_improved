@@ -22,14 +22,18 @@ struct ForecastConfig: Sendable {
 
 /// Why the service gave no forecast.
 enum ForecastFailure: Error, Equatable {
-  /// The service has no reach for the place.
+  /// The service does not have the place: the app has not sent it.
   case unknownPlace
+  /// The place is new, or moved after the last nightly fit. The forecast
+  /// starts after the next fit.
+  case pending
   /// The service refused the request, or cannot forecast now. The service
   /// gives status 503 if its parameters or the feed are too old.
   case unavailable(status: Int)
 }
 
-/// Fetches forecasts from `GET /v1/forecast` of the collector.
+/// Gets forecasts from the forecast service of the collector, and sends it the
+/// saved places.
 actor ForecastClient {
   private let config: ForecastConfig
   private let session: URLSession
@@ -68,9 +72,47 @@ actor ForecastClient {
       return try parseForecast(body: data)
     case 404:
       throw ForecastFailure.unknownPlace
+    case 409:
+      throw ForecastFailure.pending
     default:
       throw ForecastFailure.unavailable(status: http.statusCode)
     }
+  }
+
+  /// Sends all the saved places, by their service names. The service
+  /// removes the places that are not in `places`. A place that did not move
+  /// keeps its forecast.
+  func putPlaces(_ places: [String: Coordinate]) async throws {
+    var components = URLComponents()
+    components.scheme = "https"
+    components.host = config.host
+    components.path = "/v1/places"
+    guard let url = components.url else {
+      throw URLError(.badURL)
+    }
+    var request = URLRequest(url: url)
+    request.httpMethod = "PUT"
+    request.setValue("Bearer \(config.token)", forHTTPHeaderField: "Authorization")
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.httpBody = try JSONEncoder().encode(
+      PlacesBody(places: places.mapValues { PlacesBody.Position(lon: $0.lon, lat: $0.lat) }))
+    let (_, response) = try await session.data(for: request)
+    guard let http = response as? HTTPURLResponse else {
+      throw URLError(.badServerResponse)
+    }
+    guard http.statusCode == 200 else {
+      throw ForecastFailure.unavailable(status: http.statusCode)
+    }
+  }
+
+  /// The body of `PUT /v1/places`.
+  private struct PlacesBody: Encodable {
+    struct Position: Encodable {
+      let lon: Double
+      let lat: Double
+    }
+
+    let places: [String: Position]
   }
 
   /// Returns a time in UTC as RFC 3339, to the second.

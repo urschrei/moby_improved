@@ -2,19 +2,23 @@ import Foundation
 import MobyKit
 import Observation
 
-/// The forecast for the saved place that is the origin.
+/// The forecast for the saved place that is the origin, and the saved places
+/// that the service knows.
 @MainActor
 @Observable
 final class ForecastStore {
   /// The state of the forecast.
   enum State: Equatable {
-    /// There is no forecast for the origin: the app has no host or token, the
-    /// origin is not a saved place, or the service has no reach for it.
+    /// There is no forecast for the origin: the app has no host or token, or
+    /// the origin is not a saved place.
     case none
     /// The first request for the place has not finished.
     case loading
     /// The last request gave this forecast.
     case loaded(PlaceForecast)
+    /// The place is new or moved, and the forecast starts after the next
+    /// nightly fit.
+    case pending
     /// The last request failed.
     case unavailable
   }
@@ -31,15 +35,26 @@ final class ForecastStore {
   private(set) var state: State = .none
 
   private let client: ForecastClient?
+  /// The saved places of the last call to `send`, or `nil` before the
+  /// first call. Without this, a request before the first call would remove
+  /// every place at the service.
+  private var places: [PlaceKind: Place]?
 
   init(client: ForecastClient?) {
     self.client = client
   }
 
+  /// Sends all the saved places to the service, by the raw values of their
+  /// kinds. The service removes the places that are not in `places`.
+  func send(places: [PlaceKind: Place]) async {
+    self.places = places
+    await resend()
+  }
+
   /// Gets the forecast for `kind` now and after each `interval`, until the
   /// task is cancelled, also while the app runs in the background. After a
-  /// network failure, the next request is after `retryInterval`. The service knows a
-  /// place by the raw value of its kind.
+  /// network failure, the next request is after `retryInterval`. The service
+  /// knows a place by the raw value of its kind.
   func run(for kind: PlaceKind) async {
     guard let client else {
       clear()
@@ -55,9 +70,12 @@ final class ForecastStore {
         let forecast = try await client.forecast(place: kind.rawValue)
         guard !Task.isCancelled else { return }
         state = .loaded(forecast)
+      } catch ForecastFailure.pending {
+        state = .pending
       } catch ForecastFailure.unknownPlace {
-        state = .none
-        return
+        // The places did not reach the service, or it lost them.
+        state = .pending
+        await resend()
       } catch {
         guard !Task.isCancelled else { return }
         Log.forecast.error("forecast failed: \(String(describing: error))")
@@ -75,5 +93,17 @@ final class ForecastStore {
   func clear() {
     place = nil
     state = .none
+  }
+
+  private func resend() async {
+    guard let client, let places else { return }
+    let named = Dictionary(
+      uniqueKeysWithValues: places.map { ($0.key.rawValue, $0.value.coordinate) })
+    do {
+      try await client.putPlaces(named)
+      Log.forecast.info("sent \(named.count) places")
+    } catch {
+      Log.forecast.error("cannot send the places: \(String(describing: error))")
+    }
   }
 }
