@@ -34,6 +34,9 @@ pub enum Error {
     /// The time zone of the parameters is not `Europe/Dublin`.
     #[error("unsupported time zone of forecast parameters: {0}")]
     UnsupportedTimeZone(String),
+    /// The body is not a forecast response of the service.
+    #[error("cannot parse forecast response: {0}")]
+    Forecast(#[source] serde_json::Error),
     /// The time zone database does not have `Europe/Dublin`.
     #[error("cannot find Europe/Dublin in the time zone database: {0}")]
     TimeZoneDatabase(#[source] jiff::Error),
