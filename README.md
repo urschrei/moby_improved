@@ -9,7 +9,7 @@ The logic is in a Rust crate (`core`), exposed to a SwiftUI app through UniFFI (
 - Available bikes with at least a minimum range, ranked by MapKit walking time from the current position or a saved place (home, crèche and two workplaces).
 - A map with the nearest bikes, the walking route to a selected bike, and parking bays (the geofencing zones where a ride can end).
 - Faster refreshes in commute windows, and a warning when the feed is more than 10 minutes old.
-- For a saved place, the number of rentable bikes within 300 m walk now, and the probability of at least one there in 30 minutes, 1 hour and 2 hours, from a forecast service that collects the feed (`moby-collector`, in a private repository). The app shows a probability only at horizons where the model has done better than a forecast from the hour of the day; a new or moved place has a forecast after the next nightly fit of the service. See [The forecast](#the-forecast).
+- For a saved place, from 2 hours before a commute window to its end, the number of rentable bikes within 300 m walk now, and the chance of at least one there at the start of the window, from a forecast service that collects the feed (`moby-collector`, in a private repository). The app shows a probability only at horizons where the model has done better than a forecast from the hour of the day; a new or moved place has a forecast after the next nightly fit of the service. See [The forecast](#the-forecast).
 - Background watching with a Live Activity: after **Walk**, the app checks the chosen bike on each refresh. If another rider rents it, the app picks the next nearest bike and sends a notification that opens Maps at it.
 - Reports of bikes that the feed lists but that cannot be rented: ghost bikes, and bikes that need service. See [Reporting bikes](#reporting-bikes).
 - A **Walk** button on the Live Activity, which chooses the bike it shows and opens Maps. It opens MyMoby first, because a Live Activity link always opens its own app.
@@ -72,12 +72,14 @@ In a commute window, the app starts watching when it opens. It stops at the end 
 
 ### The forecast
 
-When the origin is a saved place, the sheet shows the forecast for that place under the nearest bike. The app asks the service again every 5 minutes while it runs, also in the background while it watches, and 30 seconds after a network failure.
+When the origin is a saved place, the sheet shows the forecast for that place under the nearest bike, from 2 hours before a commute window until the window ends. At other times, the app does not ask for a forecast. The app asks the service again every 5 minutes while it runs, also in the background while it watches, and 30 seconds after a network failure.
 
-- **Now**: the rentable bikes within 300 m walk of the place at the last poll of the service. **Not confirmed** bikes are bikes that a rider returned or that MOBY moved in the last 25 minutes; the feed can show such a bike at the wrong position.
-- **+30 min**, **+1 h**, **+2 h**: the probability of at least one rentable bike within 300 m walk at that time, rounded to 5%, from 5% to 95%.
+- **Chance of a bike**: the probability of at least one rentable bike within 300 m walk at the start of the window, rounded to 5%, from 5% to 95%. In the window, the time is 15 minutes after the request. Below 40%, the percentage is amber.
+- **Within a 300 m walk now**: the rentable bikes near the place at the last poll of the service. **May still be on a ride** counts bikes that a rider returned or that MOBY moved in the last 25 minutes; the feed can show such a bike at the wrong position.
 
-The app sends all the saved places to the service when it starts and when you add, move or remove a place. The service knows a place by the name of its kind: `home`, `creche`, `work` or `secondWork`. The nightly fit of the service finds the bays within 300 m walk of each place, so a place that you add or move shows **The forecast for this place starts after the next nightly fit** until that fit runs.
+If the feed of MOBY stopped or the nightly fit did not run, the service pauses the forecast and the sheet keeps the count. After the feed stopped, the count is from the last poll, with its time.
+
+The app sends all the saved places to the service when it starts and when you add, move or remove a place. The service knows a place by the name of its kind: `home`, `creche`, `work` or `secondWork`. The nightly fit of the service finds the bays within 300 m walk of each place, so a place that you add or move shows **The forecast for this place starts after the nightly update** until that fit runs.
 
 ### Reporting bikes
 
