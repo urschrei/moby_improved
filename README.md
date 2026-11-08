@@ -9,6 +9,7 @@ The logic is in a Rust crate (`core`), exposed to a SwiftUI app through UniFFI (
 - Available bikes with at least a minimum range, ranked by MapKit walking time from the current position or a saved place (home, crèche and two workplaces).
 - A map with the nearest bikes, the walking route to a selected bike, and parking bays (the geofencing zones where a ride can end).
 - Faster refreshes in commute windows, and a warning when the feed is more than 10 minutes old.
+- For a saved place, the number of rentable bikes within 300 m walk now, and the probability of at least one there in 30 minutes, 1 hour and 2 hours, from a forecast service that collects the feed (`moby-collector`, in a private repository). The app shows a probability only at horizons where the model has done better than a forecast from the hour of the day; a place that the service does not know shows no forecast. See [The forecast](#the-forecast).
 - Background watching with a Live Activity: after **Walk**, the app checks the chosen bike on each refresh. If another rider rents it, the app picks the next nearest bike and sends a notification that opens Maps at it.
 - Reports of bikes that the feed lists but that cannot be rented: ghost bikes, and bikes that need service. See [Reporting bikes](#reporting-bikes).
 - A **Walk** button on the Live Activity, which chooses the bike it shows and opens Maps. It opens MyMoby first, because a Live Activity link always opens its own app.
@@ -32,7 +33,11 @@ A free Apple ID signs the app for 7 days. After that, the app does not open unti
    ```
    DEVELOPMENT_TEAM = YOUR_TEAM_ID
    MOBY_BUNDLE_ID = ie.YOUR_NAME.mymoby
+   MOBY_FORECAST_HOST = YOUR_HOST
+   MOBY_FORECAST_TOKEN = YOUR_TOKEN
    ```
+
+   The two `MOBY_FORECAST` lines are optional. Without them, the app shows no forecast. The host is the host name of the service, and the token is its bearer token; the build puts both in the app.
 
 3. Connect the iPhone and turn on **Settings > Privacy & Security > Developer Mode**.
 4. Find the device name:
@@ -64,6 +69,15 @@ The app watches in the background only if it starts in the foreground. A Shortcu
 3. Add the **Open App** action and choose MyMoby.
 
 In a commute window, the app starts watching when it opens. It stops at the end of the window unless you are walking to a bike.
+
+### The forecast
+
+When the origin is a saved place, the sheet shows the forecast for that place under the nearest bike. The app asks the service again every 5 minutes while it is in the foreground.
+
+- **Now**: the rentable bikes within 300 m walk of the place at the last poll of the service. **Not confirmed** bikes are bikes that a rider returned or that MOBY moved in the last 25 minutes; the feed can show such a bike at the wrong position.
+- **+30 min**, **+1 h**, **+2 h**: the probability of at least one rentable bike within 300 m walk at that time, rounded to 5%, from 5% to 95%.
+
+The service knows a place by the name of its kind: `home`, `creche`, `work` or `secondWork`. It uses its own copy of the coordinates of each place, so a place that you move in the app keeps its old forecast until the service has the new coordinates.
 
 ### Reporting bikes
 
@@ -133,8 +147,8 @@ xcrun simctl launch booted ie.urschrei.mymoby -fail-first 3
 
 | Path | Contents |
 |---|---|
-| `core/` | GBFS types, candidate filtering, walking-distance search, commute schedule, target tracking, parking index with zone hashes, availability forecast (`forecast`) |
-| `core/tests/fixtures/` | Captured feed responses; in `forecast/`, synthetic parameter files and the probabilities of the Python model, from `analysis/export_fixtures.py` in `moby_analysis` |
+| `core/` | GBFS types, candidate filtering, walking-distance search, commute schedule, target tracking, parking index with zone hashes, availability forecast and the response of the forecast service (`forecast`) |
+| `core/tests/fixtures/` | Captured feed responses; in `forecast/`, synthetic parameter files and the probabilities of the Python model, from `analysis/export_fixtures.py` in `moby_analysis`, and a captured response of the forecast service |
 | `core/tests/schemas/` | Official GBFS 3.0 JSON schemas, and the schema of the forecast parameter file, copied from `moby_analysis` |
 | `ffi/` | UniFFI bindings |
 | `ios/MobyKit/` | Swift package with the XCFramework and the generated bindings |
