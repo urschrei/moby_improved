@@ -72,12 +72,12 @@ struct NearbyView: View {
       await forecasts.send(places: settings.values.places)
     }
     // The loop continues in the background while the app runs there.
-    .task(id: origin) {
+    .task(id: ForecastKey(origin: origin, windows: settings.validWindows)) {
       guard case .place(let kind) = origin else {
         forecasts.clear()
         return
       }
-      await forecasts.run(for: kind)
+      await forecasts.run(for: kind, windows: settings.validWindows)
     }
     .task(id: runKey) {
       guard runKey.isActive, runKey.hasOrigin else { return }
@@ -112,6 +112,12 @@ struct NearbyView: View {
   /// The bike with the large marker: the target, or else the nearest bike.
   private var featuredID: String? {
     store.target?.bike.id ?? store.nearest.first?.id
+  }
+
+  /// The values that restart the requests for the forecast.
+  private struct ForecastKey: Equatable {
+    let origin: Origin
+    let windows: [CommuteWindow]
   }
 
   /// The values that make the map fit the origin and the nearest bike

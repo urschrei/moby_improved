@@ -27,8 +27,9 @@ enum ForecastFailure: Error, Equatable {
   /// The place is new, or moved after the last nightly fit. The forecast
   /// starts after the next fit.
   case pending
-  /// The service refused the request, or cannot forecast now. The service
-  /// gives status 503 if its parameters or the feed are too old.
+  /// The parameters or the feed are too old. The count is still correct.
+  case paused(ForecastPause)
+  /// The service refused the request, or cannot forecast now.
   case unavailable(status: Int)
 }
 
@@ -48,16 +49,16 @@ actor ForecastClient {
   }
 
   /// Returns the forecast for the place with the service name `place`, at
-  /// the times of `forecastTargetsMs` after `now`.
-  func forecast(place: String, now: Date = .now) async throws -> PlaceForecast {
-    let targets = try forecastTargetsMs(nowMs: now.milliseconds)
+  /// `targetMs`, in milliseconds since the epoch.
+  func forecast(place: String, targetMs: Int64) async throws -> PlaceForecast {
     var components = URLComponents()
     components.scheme = "https"
     components.host = config.host
     components.path = "/v1/forecast"
-    components.queryItems =
-      [URLQueryItem(name: "place", value: place)]
-      + targets.map { URLQueryItem(name: "at", value: Self.rfc3339(milliseconds: $0)) }
+    components.queryItems = [
+      URLQueryItem(name: "place", value: place),
+      URLQueryItem(name: "at", value: Self.rfc3339(milliseconds: targetMs)),
+    ]
     guard let url = components.url else {
       throw URLError(.badURL)
     }
@@ -74,6 +75,12 @@ actor ForecastClient {
       throw ForecastFailure.unknownPlace
     case 409:
       throw ForecastFailure.pending
+    case 503:
+      // A service from before 2026-11-08 gives no count.
+      if let pause = try? parsePause(body: data) {
+        throw ForecastFailure.paused(pause)
+      }
+      throw ForecastFailure.unavailable(status: http.statusCode)
     default:
       throw ForecastFailure.unavailable(status: http.statusCode)
     }

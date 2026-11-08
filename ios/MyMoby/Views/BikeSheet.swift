@@ -28,8 +28,12 @@ struct BikeSheet: View {
           StaleNotice(feed: store.feed)
           mainSection
         }
-        if case .place(let kind) = origin, forecasts.place == kind {
-          ForecastSection(title: settings.title(for: kind), state: forecasts.state)
+        if case .place(let kind) = origin, forecasts.place == kind, let aim = forecasts.aim,
+          forecasts.state != .none
+        {
+          ForecastRow(
+            title: settings.title(for: kind), aim: aim, state: forecasts.state,
+            isRequesting: forecasts.isRequesting, retry: forecasts.retry)
         }
         if !otherBikes.isEmpty {
           VStack(alignment: .leading, spacing: 0) {

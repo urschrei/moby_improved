@@ -72,7 +72,7 @@ final class Settings {
 
   /// The windows that start before they end. The Rust schedule rejects
   /// the others.
-  private var validWindows: [CommuteWindow] {
+  var validWindows: [CommuteWindow] {
     values.windows.filter { $0.startMinute < $0.endMinute }
   }
 
