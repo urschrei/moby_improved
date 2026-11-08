@@ -50,7 +50,7 @@ pub fn schedule_next_boundary_ms(
         .map(|boundary| boundary.timestamp().as_millisecond()))
 }
 
-fn schedule(windows: &[CommuteWindow]) -> Result<Schedule, MobyError> {
+pub(crate) fn schedule(windows: &[CommuteWindow]) -> Result<Schedule, MobyError> {
     windows
         .iter()
         .map(|window| {
@@ -73,7 +73,7 @@ fn time(minute: u16) -> Result<Time, MobyError> {
     Time::new(hour, minute, 0, 0).map_err(|error| MobyError::InvalidWindow(error.to_string()))
 }
 
-fn zoned(now_ms: i64, time_zone: &str) -> Result<Zoned, MobyError> {
+pub(crate) fn zoned(now_ms: i64, time_zone: &str) -> Result<Zoned, MobyError> {
     Timestamp::from_millisecond(now_ms)
         .and_then(|now| now.in_tz(time_zone))
         .map_err(|error| MobyError::InvalidTime(error.to_string()))

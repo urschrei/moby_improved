@@ -5,14 +5,11 @@
 
 use hegel::TestCase;
 use hegel::generators as gs;
-use jiff::SignedDuration;
-use jiff::Timestamp;
 use moby_core::Error;
 use moby_core::forecast::PauseReason;
 use moby_core::forecast::Paused;
 use moby_core::forecast::Response;
 use moby_core::forecast::Target;
-use moby_core::forecast::request_targets;
 
 fn fixture() -> Vec<u8> {
     let path = format!(
@@ -113,19 +110,6 @@ fn a_probability_outside_0_to_1_is_refused() {
     assert!((value - 1.5).abs() < 1e-12, "{value}");
 }
 
-#[test]
-fn targets_are_requested_before_their_time() {
-    let now: Timestamp = "2026-11-08T09:47:27Z".parse().unwrap();
-
-    let targets = request_targets(now);
-
-    let minutes: Vec<_> = targets
-        .iter()
-        .map(|at| at.duration_since(now).as_mins())
-        .collect();
-    assert_eq!(minutes, [28, 58, 118]);
-}
-
 #[hegel::test(test_cases = 200)]
 fn a_percentage_is_a_step_of_5_near_the_probability(tc: TestCase) {
     let probability = tc.draw(gs::floats::<f64>().min_value(0.0).max_value(1.0));
@@ -139,19 +123,6 @@ fn a_percentage_is_a_step_of_5_near_the_probability(tc: TestCase) {
         (f64::from(percent) - exact).abs() <= 2.5,
         "{percent} for {probability}"
     );
-}
-
-#[hegel::test(test_cases = 50)]
-fn requested_targets_are_in_order_and_ahead(tc: TestCase) {
-    let now = Timestamp::UNIX_EPOCH
-        + SignedDuration::from_secs(
-            tc.draw(gs::integers::<i64>().min_value(0).max_value(4_000_000_000)),
-        );
-
-    let targets = request_targets(now);
-
-    assert!(targets[0] > now);
-    assert!(targets.windows(2).all(|pair| pair[0] < pair[1]));
 }
 
 #[test]

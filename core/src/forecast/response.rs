@@ -1,16 +1,7 @@
-use jiff::SignedDuration;
 use jiff::Timestamp;
 use serde::Deserialize;
 
-use super::LEAD;
 use crate::Error;
-
-/// The times after the request at which the app shows a forecast.
-pub const AHEAD: [SignedDuration; 3] = [
-    SignedDuration::from_mins(30),
-    SignedDuration::from_mins(60),
-    SignedDuration::from_mins(120),
-];
 
 /// The horizon bins that the app shows. At gate G4 of the forecast plan
 /// (2026-11-08), the model beats climatology in these bins and not at 6 h
@@ -23,12 +14,6 @@ const PERCENT_STEP: f64 = 5.0;
 /// The lowest and the highest rounded percentage. The model is not certain,
 /// so the app does not show 0% or 100%.
 const PERCENT_RANGE: (u8, u8) = (5, 95);
-
-/// Returns the target times to request at `now`, one for each of [`AHEAD`].
-#[must_use]
-pub fn request_targets(now: Timestamp) -> [Timestamp; 3] {
-    AHEAD.map(|ahead| now + ahead - LEAD)
-}
 
 /// A forecast for a place, from `GET /v1/forecast` of `moby-collector` in
 /// the `moby_analysis` repository.

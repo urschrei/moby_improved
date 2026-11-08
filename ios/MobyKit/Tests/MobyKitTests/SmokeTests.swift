@@ -82,24 +82,45 @@ let spire = Coordinate(lat: 53.349805, lon: -6.26031)
   #expect(walker.results().isEmpty)
 }
 
-@Test func forecastHasATargetForEachTimeOfTheRequest() throws {
-  // The fixture has a fourth target, at 6 h. The app asks for three.
+@Test func forecastHasOneTarget() throws {
+  // The fixture has four targets. The app asks for one.
   var response = try #require(
     try JSONSerialization.jsonObject(with: fixture("forecast/response_work")) as? [String: Any])
   let targets = try #require(response["targets"] as? [Any])
-  response["targets"] = Array(targets.prefix(3))
+  response["targets"] = Array(targets.prefix(1))
   let body = try JSONSerialization.data(withJSONObject: response)
 
   let forecast = try parseForecast(body: body)
 
   #expect(forecast.place == "work")
-  #expect(forecast.targets.map(\.aheadMin) == [30, 60, 120])
-  // The third target is in the 6 h bin, which has no skill.
-  #expect(forecast.targets.map(\.percent) == [25, 45, nil])
+  #expect(forecast.percent == 25)
 }
 
-@Test func forecastTargetsAreBeforeTheirTimes() throws {
-  let now: Int64 = 1_762_594_200_000
-  let targets = try forecastTargetsMs(nowMs: now)
-  #expect(targets.map { ($0 - now) / 60_000 } == [28, 58, 118])
+@Test func pauseKeepsTheCount() throws {
+  let body = Data(
+    #"{"error":"x","reason":"feed_too_old","origin":"2026-11-08T07:21:00Z","fitted_at":"2026-11-08T02:41:00Z","certain":3,"suspect":1}"#
+      .utf8)
+
+  let pause = try parsePause(body: body)
+
+  #expect(pause.reason == .feedTooOld)
+  #expect(pause.certain == 3)
+  #expect(pause.suspect == 1)
+}
+
+@Test func forecastOpensTwoHoursBeforeAWindow() throws {
+  let windows = [
+    CommuteWindow(weekdays: 0b001_1111, startMinute: 7 * 60 + 30, endMinute: 9 * 60 + 30)
+  ]
+  // Monday 9 November 2026, 06:00 in Dublin, which is UTC in winter.
+  let now: Int64 = 1_794_204_000_000
+
+  let plan = try forecastPlan(windows: windows, nowMs: now, timeZone: "Europe/Dublin")
+
+  guard case .open(let aim) = plan else {
+    Issue.record("expected an open plan, got \(plan)")
+    return
+  }
+  #expect((aim.atMs - now) / 60_000 == 90)
+  #expect(aim.requestMs == aim.atMs)
 }
