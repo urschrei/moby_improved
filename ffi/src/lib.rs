@@ -4,6 +4,7 @@
 
 mod error;
 mod feed;
+mod forecast;
 mod parking;
 mod records;
 mod schedule;
@@ -14,6 +15,10 @@ pub use feed::Feed;
 pub use feed::distance_m;
 pub use feed::geofencing_zones_url;
 pub use feed::vehicle_status_url;
+pub use forecast::ForecastTarget;
+pub use forecast::PlaceForecast;
+pub use forecast::forecast_targets_ms;
+pub use forecast::parse_forecast;
 pub use parking::Parking;
 pub use parking::ParkingBay;
 pub use records::Bike;
