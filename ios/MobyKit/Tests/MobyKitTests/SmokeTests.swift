@@ -81,3 +81,25 @@ let spire = Coordinate(lat: 53.349805, lon: -6.26031)
   #expect(walker.isComplete())
   #expect(walker.results().isEmpty)
 }
+
+@Test func forecastHasATargetForEachTimeOfTheRequest() throws {
+  // The fixture has a fourth target, at 6 h. The app asks for three.
+  var response = try #require(
+    try JSONSerialization.jsonObject(with: fixture("forecast/response_work")) as? [String: Any])
+  let targets = try #require(response["targets"] as? [Any])
+  response["targets"] = Array(targets.prefix(3))
+  let body = try JSONSerialization.data(withJSONObject: response)
+
+  let forecast = try parseForecast(body: body)
+
+  #expect(forecast.place == "work")
+  #expect(forecast.targets.map(\.aheadMin) == [30, 60, 120])
+  // The third target is in the 6 h bin, which has no skill.
+  #expect(forecast.targets.map(\.percent) == [25, 45, nil])
+}
+
+@Test func forecastTargetsAreBeforeTheirTimes() throws {
+  let now: Int64 = 1_762_594_200_000
+  let targets = try forecastTargetsMs(nowMs: now)
+  #expect(targets.map { ($0 - now) / 60_000 } == [28, 58, 118])
+}

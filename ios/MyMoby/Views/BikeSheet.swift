@@ -10,6 +10,7 @@ struct BikeSheet: View {
   let origin: Origin
   let originCoordinate: Coordinate?
   let nearestBay: ParkingBay?
+  let forecasts: ForecastStore
   @Binding var selectedID: String?
   @Binding var isShowingSettings: Bool
 
@@ -26,6 +27,9 @@ struct BikeSheet: View {
           ReportConfirmation(reports: controller.reports)
           StaleNotice(feed: store.feed)
           mainSection
+        }
+        if case .place(let kind) = origin, forecasts.place == kind {
+          ForecastSection(title: settings.title(for: kind), state: forecasts.state)
         }
         if !otherBikes.isEmpty {
           VStack(alignment: .leading, spacing: 0) {

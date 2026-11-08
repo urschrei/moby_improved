@@ -8,6 +8,7 @@ struct NearbyView: View {
   let location: LocationProvider
   let settings: Settings
   let parking: ParkingStore
+  let forecasts: ForecastStore
   @Environment(\.scenePhase) private var scenePhase
   @State private var origin: Origin = .here
   @State private var isShowingSettings = false
@@ -46,7 +47,7 @@ struct NearbyView: View {
     .sheet(isPresented: .constant(true)) {
       BikeSheet(
         controller: controller, location: location, settings: settings, origin: origin,
-        originCoordinate: originCoordinate, nearestBay: bays.first,
+        originCoordinate: originCoordinate, nearestBay: bays.first, forecasts: forecasts,
         selectedID: $selectedID, isShowingSettings: $isShowingSettings
       )
       .presentationDetents([BikeSheet.collapsed, .medium, .large], selection: $detent)
@@ -66,6 +67,13 @@ struct NearbyView: View {
       if let bike = selectedBike, let origin = originCoordinate {
         route = await Handoff.route(from: origin, to: bike)
       }
+    }
+    .task(id: forecastKey) {
+      guard forecastKey.isActive, case .place(let kind) = forecastKey.origin else {
+        forecasts.clear()
+        return
+      }
+      await forecasts.run(for: kind)
     }
     .task(id: runKey) {
       guard runKey.isActive, runKey.hasOrigin else { return }
@@ -167,6 +175,16 @@ struct NearbyView: View {
   }
 
   /// The values that restart the refresh loop when they change.
+  private struct ForecastKey: Equatable {
+    let isActive: Bool
+    let origin: Origin
+  }
+
+  /// The forecast is for a saved place, while the app is in the foreground.
+  private var forecastKey: ForecastKey {
+    ForecastKey(isActive: scenePhase == .active, origin: origin)
+  }
+
   private struct RunKey: Equatable {
     let isActive: Bool
     let hasOrigin: Bool

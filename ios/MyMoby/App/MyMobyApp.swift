@@ -6,6 +6,7 @@ struct MyMobyApp: App {
   @State private var controller: CommuteController
   @State private var location: LocationProvider
   @State private var parking: ParkingStore
+  @State private var forecasts: ForecastStore
 
   init() {
     let settings = Settings()
@@ -15,6 +16,8 @@ struct MyMobyApp: App {
     _settings = State(initialValue: settings)
     _location = State(initialValue: location)
     _parking = State(initialValue: ParkingStore(client: client))
+    _forecasts = State(
+      initialValue: ForecastStore(client: ForecastConfig.from().map(ForecastClient.init)))
     _controller = State(
       initialValue: CommuteController(store: store, settings: settings, location: location))
     Notifier.shared.register()
@@ -39,8 +42,11 @@ struct MyMobyApp: App {
 
   var body: some Scene {
     WindowGroup {
-      NearbyView(controller: controller, location: location, settings: settings, parking: parking)
-        .tint(Theme.accent)
+      NearbyView(
+        controller: controller, location: location, settings: settings, parking: parking,
+        forecasts: forecasts
+      )
+      .tint(Theme.accent)
     }
   }
 }
