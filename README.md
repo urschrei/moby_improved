@@ -72,7 +72,7 @@ In a commute window, the app starts watching when it opens. It stops at the end 
 
 ### The forecast
 
-When the origin is a saved place, the sheet shows the forecast for that place under the nearest bike. The app asks the service again every 5 minutes while it is in the foreground.
+When the origin is a saved place, the sheet shows the forecast for that place under the nearest bike. The app asks the service again every 5 minutes while it runs, also in the background while it watches, and 30 seconds after a network failure.
 
 - **Now**: the rentable bikes within 300 m walk of the place at the last poll of the service. **Not confirmed** bikes are bikes that a rider returned or that MOBY moved in the last 25 minutes; the feed can show such a bike at the wrong position.
 - **+30 min**, **+1 h**, **+2 h**: the probability of at least one rentable bike within 300 m walk at that time, rounded to 5%, from 5% to 95%.

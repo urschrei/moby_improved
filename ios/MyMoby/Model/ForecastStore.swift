@@ -23,6 +23,10 @@ final class ForecastStore {
   /// about 20 minutes.
   static let interval: Duration = .seconds(5 * 60)
 
+  /// The time before the next request after a network failure. A request
+  /// can fail when iOS suspends the app.
+  static let retryInterval: Duration = .seconds(30)
+
   private(set) var place: PlaceKind?
   private(set) var state: State = .none
 
@@ -33,8 +37,9 @@ final class ForecastStore {
   }
 
   /// Gets the forecast for `kind` now and after each `interval`, until the
-  /// task is cancelled. The service knows a place by the raw value of its
-  /// kind.
+  /// task is cancelled, also while the app runs in the background. After a
+  /// network failure, the next request is after `retryInterval`. The service knows a
+  /// place by the raw value of its kind.
   func run(for kind: PlaceKind) async {
     guard let client else {
       clear()
@@ -45,6 +50,7 @@ final class ForecastStore {
       state = .loading
     }
     while !Task.isCancelled {
+      var wait = Self.interval
       do {
         let forecast = try await client.forecast(place: kind.rawValue)
         guard !Task.isCancelled else { return }
@@ -54,11 +60,14 @@ final class ForecastStore {
         return
       } catch {
         guard !Task.isCancelled else { return }
-        Log.forecast.error("forecast failed: \(error.localizedDescription)")
+        Log.forecast.error("forecast failed: \(String(describing: error))")
         // An old forecast has the wrong times, so the app does not keep it.
         state = .unavailable
+        if error is URLError {
+          wait = Self.retryInterval
+        }
       }
-      try? await Task.sleep(for: Self.interval)
+      try? await Task.sleep(for: wait)
     }
   }
 

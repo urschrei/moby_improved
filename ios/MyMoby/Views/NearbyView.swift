@@ -68,8 +68,9 @@ struct NearbyView: View {
         route = await Handoff.route(from: origin, to: bike)
       }
     }
-    .task(id: forecastKey) {
-      guard forecastKey.isActive, case .place(let kind) = forecastKey.origin else {
+    // The loop continues in the background while the app runs there.
+    .task(id: origin) {
+      guard case .place(let kind) = origin else {
         forecasts.clear()
         return
       }
@@ -175,16 +176,6 @@ struct NearbyView: View {
   }
 
   /// The values that restart the refresh loop when they change.
-  private struct ForecastKey: Equatable {
-    let isActive: Bool
-    let origin: Origin
-  }
-
-  /// The forecast is for a saved place, while the app is in the foreground.
-  private var forecastKey: ForecastKey {
-    ForecastKey(isActive: scenePhase == .active, origin: origin)
-  }
-
   private struct RunKey: Equatable {
     let isActive: Bool
     let hasOrigin: Bool
