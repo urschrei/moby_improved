@@ -7,4 +7,12 @@
 CODE_SIGN_STYLE = Automatic
 MOBY_BUNDLE_ID = ie.urschrei.mymoby
 
+// The forecast service of moby-collector. Put its host name and bearer token
+// in Local.xcconfig. Without them, the app shows no forecast.
+//
+//   MOBY_FORECAST_HOST = forecast.example.com
+//   MOBY_FORECAST_TOKEN = 0123abcd...
+MOBY_FORECAST_HOST =
+MOBY_FORECAST_TOKEN =
+
 #include? "Local.xcconfig"

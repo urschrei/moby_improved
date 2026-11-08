@@ -41,6 +41,8 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: $(PRODUCT_BUNDLE_IDENTIFIER)
             CFBundleURLSchemes: [mymoby]
+        MobyForecastHost: $(MOBY_FORECAST_HOST)
+        MobyForecastToken: $(MOBY_FORECAST_TOKEN)
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(MOBY_BUNDLE_ID)
