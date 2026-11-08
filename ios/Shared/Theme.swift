@@ -16,6 +16,10 @@ enum Theme {
   /// The colour of a warning, such as a rented bike or old data.
   static let warning = Color.orange
 
+  /// The colour of a range for one or two commutes, or of a forecast that
+  /// makes a bike unlikely.
+  static let caution = Color(light: 0xB2_6B_00, dark: 0xFF_C2_4B)
+
   /// The range of a full battery.
   static let fullRangeM = 50_000.0
 
@@ -24,7 +28,7 @@ enum Theme {
   static func rangeColour(_ rangeM: Double) -> Color {
     switch rangeM {
     case 20_000...: accent
-    case 10_000..<20_000: Color(light: 0xB2_6B_00, dark: 0xFF_C2_4B)
+    case 10_000..<20_000: caution
     default: Color(light: 0xC4_2B_1C, dark: 0xFF_6B_5B)
     }
   }
