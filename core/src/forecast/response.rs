@@ -2,6 +2,7 @@ use jiff::SignedDuration;
 use jiff::Timestamp;
 use serde::Deserialize;
 
+use super::LEAD;
 use crate::Error;
 
 /// The times after the request at which the app shows a forecast.
@@ -10,13 +11,6 @@ pub const AHEAD: [SignedDuration; 3] = [
     SignedDuration::from_mins(60),
     SignedDuration::from_mins(120),
 ];
-
-/// The app asks for each target this much before its time in [`AHEAD`].
-///
-/// The service puts a target in a horizon bin by its time after the last
-/// accepted poll, which is up to about a minute before the request. Without
-/// the lead, a target 2 h after the request is in the 6 h bin.
-pub const LEAD: SignedDuration = SignedDuration::from_mins(2);
 
 /// The horizon bins that the app shows. At gate G4 of the forecast plan
 /// (2026-11-08), the model beats climatology in these bins and not at 6 h
@@ -57,6 +51,48 @@ pub struct Response {
     pub targets: Vec<Target>,
     /// The model that made the forecast.
     pub model: Model,
+}
+
+/// The body of a refusal of the service for old parameters or an old poll,
+/// with the count at the last accepted poll. The forecast is paused, and the
+/// count is still correct.
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+pub struct Paused {
+    /// Why the service gives no forecast.
+    pub reason: PauseReason,
+    /// The time of the last accepted poll.
+    pub origin: Timestamp,
+    /// The time of the fit of the parameters.
+    pub fitted_at: Timestamp,
+    /// The rentable bikes in the reach at the origin that are not suspect.
+    pub certain: u32,
+    /// The bikes in the reach at the origin that can be at a stale position
+    /// or in transit.
+    pub suspect: u32,
+}
+
+/// Why the service gives a count and no forecast.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PauseReason {
+    /// The parameters are more than 36 h old: the nightly fit did not run.
+    ParametersTooOld,
+    /// The last accepted poll is more than 10 min old: the feed of MOBY
+    /// stopped.
+    FeedTooOld,
+}
+
+impl Paused {
+    /// Parses the body of a refusal with status 503.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Forecast`] if the body does not have a reason and
+    /// the count, for example from a version of the service before
+    /// 2026-11-08, or for a failure of the service.
+    pub fn from_slice(body: &[u8]) -> Result<Self, Error> {
+        serde_json::from_slice(body).map_err(Error::Forecast)
+    }
 }
 
 /// The forecast for one target time.

@@ -8,6 +8,8 @@ use hegel::generators as gs;
 use jiff::SignedDuration;
 use jiff::Timestamp;
 use moby_core::Error;
+use moby_core::forecast::PauseReason;
+use moby_core::forecast::Paused;
 use moby_core::forecast::Response;
 use moby_core::forecast::Target;
 use moby_core::forecast::request_targets;
@@ -150,4 +152,35 @@ fn requested_targets_are_in_order_and_ahead(tc: TestCase) {
 
     assert!(targets[0] > now);
     assert!(targets.windows(2).all(|pair| pair[0] < pair[1]));
+}
+
+#[test]
+fn a_refusal_for_an_old_poll_has_the_count() {
+    let body = br#"{"error":"the last accepted poll, at 2026-11-08T07:21:00Z, is too old","reason":"feed_too_old","origin":"2026-11-08T07:21:00Z","fitted_at":"2026-11-08T02:41:00Z","certain":3,"suspect":1}"#;
+
+    let paused = Paused::from_slice(body).unwrap();
+
+    assert_eq!(paused.reason, PauseReason::FeedTooOld);
+    assert_eq!(paused.origin, "2026-11-08T07:21:00Z".parse().unwrap());
+    assert_eq!((paused.certain, paused.suspect), (3, 1));
+}
+
+#[test]
+fn a_refusal_for_old_parameters_has_its_reason() {
+    let body = br#"{"error":"x","reason":"parameters_too_old","origin":"2026-11-08T07:21:00Z","fitted_at":"2026-11-06T02:41:00Z","certain":0,"suspect":0}"#;
+
+    assert_eq!(
+        Paused::from_slice(body).unwrap().reason,
+        PauseReason::ParametersTooOld
+    );
+}
+
+#[test]
+fn a_refusal_without_the_count_is_not_a_pause() {
+    // The body of the service before 2026-11-08, and of a failure.
+    let result = Paused::from_slice(br#"{"error":"the last accepted poll is too old"}"#);
+
+    let Err(Error::Forecast(_)) = result else {
+        panic!("expected a parse error, got {result:?}");
+    };
 }
