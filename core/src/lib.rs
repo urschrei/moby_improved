@@ -30,6 +30,7 @@ pub use query::Candidate;
 pub use query::Filter;
 pub use query::candidates;
 pub use schedule::CommuteWindow;
+pub use schedule::Occurrence;
 pub use schedule::Schedule;
 pub use schedule::Weekdays;
 pub use target::MOVE_THRESHOLD_M;

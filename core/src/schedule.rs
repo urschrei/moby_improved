@@ -1,7 +1,10 @@
+use jiff::SignedDuration;
 use jiff::Zoned;
+use jiff::civil::Date;
 use jiff::civil::Time;
 use jiff::civil::Weekday;
 use jiff::tz::AmbiguousOffset;
+use jiff::tz::TimeZone;
 
 /// The times of the week when the rider commutes.
 ///
@@ -17,6 +20,15 @@ pub struct CommuteWindow {
     weekdays: Weekdays,
     start: Time,
     end: Time,
+}
+
+/// A commute window on one date, as instants.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Occurrence {
+    /// The start of the window.
+    pub start: Zoned,
+    /// The end of the window.
+    pub end: Zoned,
 }
 
 /// A set of days of the week.
@@ -86,6 +98,61 @@ impl Schedule {
     }
 }
 
+impl Schedule {
+    /// Returns the window that contains `now`, or else the next window after
+    /// `now` if it starts at most `within` after `now`.
+    ///
+    /// A start or end in a gap of the time zone is the instant after the gap.
+    /// A window that contains `now` starts at `now` at the latest, also if
+    /// its start is in a gap.
+    #[must_use]
+    pub fn current_or_next(&self, now: &Zoned, within: SignedDuration) -> Option<Occurrence> {
+        if let Some(window) = self.windows.iter().find(|window| window.contains(now)) {
+            return window
+                .on(now.date(), now.time_zone())
+                .map(|occurrence| Occurrence {
+                    start: occurrence.start.min(now.clone()),
+                    end: occurrence.end,
+                });
+        }
+        let limit = now.timestamp().checked_add(within).ok()?;
+        self.upcoming(now)
+            .into_iter()
+            .next()
+            .filter(|occurrence| occurrence.start.timestamp() <= limit)
+    }
+
+    /// Returns the first start of a window after `now`, or `None` if the
+    /// schedule has no windows on any day.
+    #[must_use]
+    pub fn next_start(&self, now: &Zoned) -> Option<Zoned> {
+        self.upcoming(now)
+            .into_iter()
+            .next()
+            .map(|occurrence| occurrence.start)
+    }
+
+    /// Returns the windows that start after `now`, in the next 8 days, in
+    /// the order of their starts.
+    fn upcoming(&self, now: &Zoned) -> Vec<Occurrence> {
+        let mut occurrences = Vec::new();
+        let mut date = now.date();
+        for _ in 0..8 {
+            occurrences.extend(
+                self.windows
+                    .iter()
+                    .filter(|window| window.weekdays.contains(date.weekday()))
+                    .filter_map(|window| window.on(date, now.time_zone()))
+                    .filter(|occurrence| occurrence.start > *now),
+            );
+            let Ok(tomorrow) = date.tomorrow() else { break };
+            date = tomorrow;
+        }
+        occurrences.sort_by(|a, b| a.start.cmp(&b.start));
+        occurrences
+    }
+}
+
 impl CommuteWindow {
     /// Makes a window from `start` (inclusive) to `end` (exclusive) on the
     /// given days.
@@ -105,6 +172,15 @@ impl CommuteWindow {
     #[must_use]
     pub fn contains(&self, now: &Zoned) -> bool {
         self.weekdays.contains(now.weekday()) && (self.start..self.end).contains(&now.time())
+    }
+
+    /// Returns the window on `date` in `tz`, whatever its days. Returns
+    /// `None` if the date is at the end of the range of `jiff`.
+    fn on(&self, date: Date, tz: &TimeZone) -> Option<Occurrence> {
+        Some(Occurrence {
+            start: date.to_datetime(self.start).to_zoned(tz.clone()).ok()?,
+            end: date.to_datetime(self.end).to_zoned(tz.clone()).ok()?,
+        })
     }
 
     /// Returns the days of the window.

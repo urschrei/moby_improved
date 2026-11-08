@@ -2,12 +2,14 @@
 
 use hegel::TestCase;
 use hegel::generators as gs;
+use jiff::SignedDuration;
 use jiff::Timestamp;
 use jiff::Zoned;
 use jiff::civil::Time;
 use jiff::civil::date;
 use jiff::civil::time;
 use moby_core::CommuteWindow;
+use moby_core::Occurrence;
 use moby_core::Schedule;
 use moby_core::Weekdays;
 
@@ -181,4 +183,89 @@ fn activity_does_not_change_before_the_next_boundary(tc: TestCase) {
         schedule.is_active(&now),
         "{now} {later} {boundary}"
     );
+}
+
+#[test]
+fn the_window_that_contains_now_is_current() {
+    let now = dublin("2026-11-09T08:10:00");
+
+    let occurrence = workday_schedule()
+        .current_or_next(&now, SignedDuration::from_hours(2))
+        .unwrap();
+
+    assert_eq!(occurrence.start, dublin("2026-11-09T07:30:00"));
+    assert_eq!(occurrence.end, dublin("2026-11-09T09:30:00"));
+}
+
+#[test]
+fn a_window_that_starts_soon_is_next() {
+    let schedule = workday_schedule();
+    let within = SignedDuration::from_hours(2);
+
+    let next = schedule
+        .current_or_next(&dublin("2026-11-09T14:30:00"), within)
+        .unwrap();
+
+    assert_eq!(next.start, dublin("2026-11-09T16:30:00"));
+    assert_eq!(
+        schedule.current_or_next(&dublin("2026-11-09T14:29:59"), within),
+        None
+    );
+    // The window ends at 09:30, and the next starts at 16:30.
+    assert_eq!(
+        schedule.current_or_next(&dublin("2026-11-09T09:30:00"), within),
+        None
+    );
+}
+
+#[test]
+fn the_next_window_can_be_on_another_day() {
+    let schedule = workday_schedule();
+
+    assert_eq!(
+        schedule.next_start(&dublin("2026-11-13T19:00:00")),
+        Some(dublin("2026-11-16T07:30:00"))
+    );
+    assert_eq!(
+        schedule.current_or_next(
+            &dublin("2026-11-15T23:00:00"),
+            SignedDuration::from_hours(9)
+        ),
+        Some(Occurrence {
+            start: dublin("2026-11-16T07:30:00"),
+            end: dublin("2026-11-16T09:30:00"),
+        })
+    );
+    assert_eq!(
+        Schedule::default().next_start(&dublin("2026-11-13T19:00:00")),
+        None
+    );
+}
+
+#[hegel::test]
+fn current_or_next_contains_now_or_starts_within_the_limit(tc: TestCase) {
+    let schedule = draw_schedule(&tc);
+    let now = draw_instant(&tc);
+    let within =
+        SignedDuration::from_mins(tc.draw(gs::integers::<i64>().min_value(0).max_value(600)));
+
+    match schedule.current_or_next(&now, within) {
+        Some(occurrence) if schedule.is_active(&now) => {
+            assert!(occurrence.start <= now, "{now} {occurrence:?}");
+        }
+        Some(occurrence) => {
+            assert!(occurrence.start > now, "{now} {occurrence:?}");
+            assert!(occurrence.start.timestamp() <= now.timestamp() + within);
+            assert_eq!(schedule.next_start(&now), Some(occurrence.start));
+        }
+        None => {
+            assert!(!schedule.is_active(&now));
+            if let Some(start) = schedule.next_start(&now) {
+                assert!(
+                    start.timestamp() > now.timestamp() + within,
+                    "{now} {start}"
+                );
+            }
+        }
+    }
 }
