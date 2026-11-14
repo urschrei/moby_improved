@@ -7,7 +7,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
-rstar = "0.13"
+rstar = "0.14"
 rstar_geodetic = { git = "https://github.com/urschrei/rstar_geodetic", rev = "02b71a2f2cc3baeb49a5330196248d7c9f49a03d" }
 geo = "0.33"
 jiff = { version = "0.2.37", features = ["serde"] }
@@ -22,5 +22,5 @@ blake3 = "1"
 workspace = true
 
 [dev-dependencies]
-hegeltest = "0.47.4"
-jsonschema = { version = "0.58.0", default-features = false }
+hegeltest = "0.52.2"
+jsonschema = { version = "0.61.1", default-features = false }
